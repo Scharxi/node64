@@ -666,7 +666,7 @@ func (s *Server) settingsData(w http.ResponseWriter, r *http.Request) {
 }
 
 // logModuleNames: Module mit eigenem Log-Level (Oberflaeche und API).
-var logModuleNames = []string{"core", "web", "store", "scheduler", "notify", "healthchecks", "dyndns", "dns64", "ipam", "sync", "peer"}
+var logModuleNames = []string{"core", "web", "store", "scheduler", "notify", "healthchecks", "dyndns", "dns64", "ipam", "exposure", "sync", "peer"}
 
 func (s *Server) settingsLogging(w http.ResponseWriter, r *http.Request) {
 	f := s.formValues(r, "level", "reset_minutes", "module")

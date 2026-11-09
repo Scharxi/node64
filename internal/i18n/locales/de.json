@@ -75,6 +75,7 @@
     "disconnected": "Healthchecks-Sync: hubs nicht erreichbar",
     "dns64": "DNS64",
     "ipam": "IPAM",
+    "exposure": "Exposure-Check",
     "dashboard": "Dashboard",
     "healthchecks": "Healthchecks",
     "dyndns": "DynDNS",
@@ -1829,6 +1830,7 @@
       "sync": "ipv64 & Gruppe",
       "honeypot": "Honeypot64",
       "ipam": "IPAM",
+      "exposure": "Exposure-Check",
       "mcp": "KI (MCP)"
     },
     "actions": {
@@ -1901,6 +1903,8 @@
       "ipam_address_ack": "IPAM: Gerät bestätigt",
       "ipam_address_ignore": "IPAM: Gerät ignoriert",
       "ipam_address_delete": "IPAM: Adresse gelöscht",
+      "exposure_settings": "Exposure-Check: Einstellungen geändert",
+      "exposure_scan": "Exposure-Check: Prüfung gestartet",
       "dyndns_check": "IP-Prüfung gestartet",
       "dyndns_settings": "DynDNS-Einstellungen geändert",
       "dyndns_target_add": "Ziel angelegt",
@@ -5459,6 +5463,69 @@
       "address_added": "Adresse eingetragen.",
       "address_saved": "Gespeichert.",
       "address_deleted": "Adresse gelöscht."
+    }
+  },
+  "exposure": {
+    "title": "Exposure-Check",
+    "hint": "Innen-Sicht: Hier steht, was auf welcher Adresse lauscht und welches Modul den Port besitzt. Ob ein Port aus dem Internet erreichbar ist, zeigt die Außen-Sicht (folgt).",
+    "self": {
+      "title": "Diese Node",
+      "unknown": "Die lauschenden Ports sind auf diesem System nicht lesbar (nur unter Linux).",
+      "empty": "Keine offenen Ports gefunden.",
+      "foreign": "fremdes Programm"
+    },
+    "col": {
+      "port": "Port",
+      "bind": "Bindung",
+      "service": "Dienst",
+      "owner": "Modul",
+      "since": "Seit",
+      "address": "Adresse",
+      "name": "Name",
+      "ports": "Offene Ports",
+      "last_seen": "Zuletzt gesehen"
+    },
+    "bind": {
+      "all": "alle Adressen",
+      "local": "nur lokal"
+    },
+    "lan": {
+      "title": "Geräte im LAN",
+      "none": "Kein Subnetz zum Scannen eingeschaltet.",
+      "no_ports": "Keine offenen Ports auf den geprüften Geräten.",
+      "ipam_off": "IPAM ist nicht eingeschaltet, daher gibt es keine Subnetze.",
+      "stale": "nicht mehr gesehen",
+      "stale_hint": "In IPAM seit über 24 Stunden nicht mehr gesehen; die Ports stammen vom letzten Scan."
+    },
+    "status": {
+      "never": "noch nicht gelesen",
+      "never_scan": "noch kein Scan",
+      "last_self": "gelesen",
+      "last_scan": "letzter Scan",
+      "hosts": "{n} Geräte",
+      "running": "Ein Lauf ist aktiv."
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "interval": "Abstand des LAN-Scans",
+      "hours": "{n} Stunden",
+      "ports": "Eigene Ports",
+      "ports_hint": "Zusätzlich zur Standardliste (rund 90 häufige Ports), höchstens 100 Ports insgesamt. Bereiche wie 8000-8010 sind möglich.",
+      "subnets": "Subnetze scannen",
+      "subnets_hint": "Nur bekannte Geräte (in den letzten 24 Stunden gesehen) und nur private Netze. Der Scan baut kurze Verbindungen zu den Ports auf.",
+      "scan": "Jetzt prüfen",
+      "not_private": "nicht scanbar: kein privates Netz"
+    },
+    "err": {
+      "ports": "Ungültige Ports. Erlaubt sind Zahlen von 1 bis 65535 und Bereiche wie 8000-8010, getrennt durch Komma.",
+      "too_many": "Zu viele Ports (höchstens 100 inklusive Standardliste).",
+      "interval": "Ungültiger Abstand.",
+      "subnet": "Unbekanntes Subnetz.",
+      "busy": "Es läuft schon eine Prüfung.",
+      "not_private": "Nur private Netze lassen sich scannen."
+    },
+    "flash": {
+      "started": "Prüfung gestartet."
     }
   },
   "sonar64": {

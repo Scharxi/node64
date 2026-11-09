@@ -1,0 +1,103 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1 class="h4 mb-3"><i class="bi bi-shield-exclamation text-primary"></i> {{.T "exposure.title"}}</h1>
+<p class="text-body-secondary small">{{.T "exposure.hint"}}</p>
+
+<div class="card mb-3">
+	<div class="card-header d-flex flex-wrap align-items-center gap-2">
+		<span><i class="bi bi-hdd-network text-primary"></i> {{.T "exposure.self.title"}}</span>
+		<span class="ms-auto small text-body-secondary">{{if $d.Status.LastSelfAt.IsZero}}{{.T "exposure.status.never"}}{{else}}{{.T "exposure.status.last_self"}} <span title="{{.Time $d.Status.LastSelfAt}}">{{.Ago $d.Status.LastSelfAt}}</span>{{end}}</span>
+	</div>
+	{{if not $d.SelfKnown}}
+	<div class="card-body small"><div class="alert alert-secondary mb-0"><i class="bi bi-question-circle"></i> {{.T "exposure.self.unknown"}}</div></div>
+	{{else if $d.Self}}
+	<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 table-cards small">
+		<thead><tr><th class="ps-3">{{.T "exposure.col.port"}}</th><th>{{.T "exposure.col.bind"}}</th><th>{{.T "exposure.col.service"}}</th><th>{{.T "exposure.col.owner"}}</th><th>{{.T "exposure.col.since"}}</th></tr></thead>
+		<tbody>
+		{{range $d.Self}}
+		<tr data-port="{{.Port}}"{{if not .Owner}} class="table-warning"{{end}}>
+			<td data-label="{{$.T "exposure.col.port"}}" class="ps-3 font-monospace">{{.Port}}/{{.Proto}}</td>
+			<td data-label="{{$.T "exposure.col.bind"}}">{{if eq .Bind "all"}}{{$.T "exposure.bind.all"}}{{else if eq .Bind "local"}}{{$.T "exposure.bind.local"}}{{else}}<span class="font-monospace">{{.Bind}}</span>{{end}}</td>
+			<td data-label="{{$.T "exposure.col.service"}}" class="text-break">{{if .Service}}{{.Service}}{{else}}<span class="text-body-secondary">–</span>{{end}}</td>
+			<td data-label="{{$.T "exposure.col.owner"}}">{{if .Owner}}<span class="badge text-bg-secondary">{{.Owner}}</span>{{else}}<span class="badge text-bg-warning">{{$.T "exposure.self.foreign"}}</span>{{end}}</td>
+			<td data-label="{{$.T "exposure.col.since"}}" class="text-nowrap"><span title="{{$.Time .FirstSeen}}">{{$.Ago .FirstSeen}}</span></td>
+		</tr>
+		{{end}}
+		</tbody>
+	</table></div>
+	{{else}}
+	<div class="card-body small text-body-secondary">{{.T "exposure.self.empty"}}</div>
+	{{end}}
+</div>
+
+<div class="card mb-3">
+	<div class="card-header d-flex flex-wrap align-items-center gap-2">
+		<span><i class="bi bi-diagram-3 text-primary"></i> {{.T "exposure.lan.title"}}</span>
+		<span class="ms-auto small text-body-secondary">{{if $d.Status.LastScanAt.IsZero}}{{.T "exposure.status.never_scan"}}{{else}}{{.T "exposure.status.last_scan"}} <span title="{{.Time $d.Status.LastScanAt}}">{{.Ago $d.Status.LastScanAt}}</span> · {{.T "exposure.status.hosts" "n" $d.Status.Hosts}}{{end}}</span>
+	</div>
+	{{if $d.Status.LastErr}}<div class="card-body small pb-0"><div class="alert alert-danger py-2 mb-0">{{$d.Status.LastErr}}</div></div>{{end}}
+	{{if not $d.IPAM}}
+	<div class="card-body small text-body-secondary">{{.T "exposure.lan.ipam_off"}}</div>
+	{{else if not $d.Subnets}}
+	<div class="card-body small text-body-secondary">{{.T "exposure.lan.none"}}</div>
+	{{else}}
+	{{range $d.Subnets}}
+	<div class="card-body small border-top">
+		<div class="fw-semibold">{{.Ref.Name}} <span class="font-monospace text-body-secondary">{{.Ref.CIDR}}</span></div>
+		{{if .Hosts}}
+		<div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0 small">
+			<thead><tr><th>{{$.T "exposure.col.address"}}</th><th>{{$.T "exposure.col.name"}}</th><th>{{$.T "exposure.col.ports"}}</th><th>{{$.T "exposure.col.last_seen"}}</th></tr></thead>
+			<tbody>
+			{{range .Hosts}}
+			<tr data-host="{{.Address}}"{{if .Stale}} class="text-body-secondary"{{end}}>
+				<td class="font-monospace">{{.Address}}</td>
+				<td class="text-break">{{if .Name}}{{.Name}}{{else}}<span class="text-body-secondary">–</span>{{end}}{{if .Stale}} <span class="badge text-bg-secondary" title="{{$.T "exposure.lan.stale_hint"}}">{{$.T "exposure.lan.stale"}}</span>{{end}}</td>
+				<td>{{range .Ports}}<span class="badge text-bg-light border me-1" data-port="{{.Port}}">{{.Port}}{{if .Service}} {{.Service}}{{end}}</span>{{end}}</td>
+				<td class="text-nowrap"><span title="{{$.Time .LastSeen}}">{{$.Ago .LastSeen}}</span></td>
+			</tr>
+			{{end}}
+			</tbody>
+		</table></div>
+		{{else}}
+		<div class="text-body-secondary mt-1">{{$.T "exposure.lan.no_ports"}}</div>
+		{{end}}
+	</div>
+	{{end}}
+	{{end}}
+</div>
+
+<div class="card">
+	<div class="card-header"><i class="bi bi-sliders text-info"></i> {{.T "exposure.settings.title"}}</div>
+	<div class="card-body small">
+		<form method="post" action="/exposure/settings" class="row g-3">
+			<input type="hidden" name="_csrf" value="{{.CSRF}}">
+			<div class="col-md-4">
+				<label class="form-label mb-1" for="ex-interval">{{.T "exposure.settings.interval"}}</label>
+				<select class="form-select form-select-sm" id="ex-interval" name="interval">
+					{{range $d.Intervals}}<option value="{{.}}"{{if eq . $d.Settings.IntervalHours}} selected{{end}}>{{$.T "exposure.settings.hours" "n" .}}</option>{{end}}
+				</select>
+			</div>
+			<div class="col-md-8">
+				<label class="form-label mb-1" for="ex-ports">{{.T "exposure.settings.ports"}}</label>
+				<input class="form-control form-control-sm font-monospace" id="ex-ports" name="ports" value="{{$d.PortsText}}" placeholder="8000-8010, 9999">
+				<div class="form-text">{{.T "exposure.settings.ports_hint"}}</div>
+			</div>
+			<div class="col-12">
+				<div class="form-label mb-1">{{.T "exposure.settings.subnets"}}</div>
+				{{range $d.Choices}}
+				<div class="form-check"><input class="form-check-input" type="checkbox" name="subnet" value="{{.Ref.ID}}" id="ex-sn-{{.Ref.ID}}"{{if .Enabled}} checked{{end}}{{if not .Private}} disabled{{end}}><label class="form-check-label" for="ex-sn-{{.Ref.ID}}">{{.Ref.Name}} <span class="font-monospace text-body-secondary">{{.Ref.CIDR}}</span>{{if not .Private}} <span class="text-body-secondary">– {{$.T "exposure.settings.not_private"}}</span>{{end}}</label></div>
+				{{else}}
+				<div class="text-body-secondary">{{$.T "exposure.lan.ipam_off"}}</div>
+				{{end}}
+				<div class="form-text">{{.T "exposure.settings.subnets_hint"}}</div>
+			</div>
+			<div class="col-12"><button class="btn btn-primary btn-sm" type="submit">{{.T "common.save"}}</button></div>
+		</form>
+		<form method="post" action="/exposure/scan" class="mt-3 pt-3 border-top">
+			<input type="hidden" name="_csrf" value="{{.CSRF}}">
+			<button class="btn btn-outline-primary btn-sm" type="submit"{{if $d.Status.Running}} disabled{{end}}><i class="bi bi-arrow-repeat"></i> {{.T "exposure.settings.scan"}}</button>
+			{{if $d.Status.Running}}<span class="text-body-secondary ms-2">{{.T "exposure.status.running"}}</span>{{end}}
+		</form>
+	</div>
+</div>
+{{end}}

@@ -75,6 +75,7 @@
     "disconnected": "Healthchecks sync: hubs unreachable",
     "dns64": "DNS64",
     "ipam": "IPAM",
+    "exposure": "Exposure check",
     "dashboard": "Dashboard",
     "healthchecks": "Healthchecks",
     "dyndns": "DynDNS",
@@ -1829,6 +1830,7 @@
       "sync": "ipv64 & group",
       "honeypot": "Honeypot64",
       "ipam": "IPAM",
+      "exposure": "Exposure check",
       "mcp": "AI (MCP)"
     },
     "actions": {
@@ -1901,6 +1903,8 @@
       "ipam_address_ack": "IPAM: device acknowledged",
       "ipam_address_ignore": "IPAM: device ignored",
       "ipam_address_delete": "IPAM: address deleted",
+      "exposure_settings": "Exposure check: settings changed",
+      "exposure_scan": "Exposure check: check started",
       "dyndns_check": "IP check started",
       "dyndns_settings": "DynDNS settings changed",
       "dyndns_target_add": "Target added",
@@ -5459,6 +5463,69 @@
       "address_added": "Address added.",
       "address_saved": "Saved.",
       "address_deleted": "Address deleted."
+    }
+  },
+  "exposure": {
+    "title": "Exposure check",
+    "hint": "Inside view: this shows which ports listen on which addresses. Whether a port is reachable from the internet is shown by the outside view (coming).",
+    "self": {
+      "title": "This node",
+      "unknown": "The listening ports cannot be read on this system (Linux only).",
+      "empty": "No open ports found.",
+      "foreign": "foreign program"
+    },
+    "col": {
+      "port": "Port",
+      "bind": "Binding",
+      "service": "Service",
+      "owner": "Module",
+      "since": "Since",
+      "address": "Address",
+      "name": "Name",
+      "ports": "Open ports",
+      "last_seen": "Last seen"
+    },
+    "bind": {
+      "all": "all addresses",
+      "local": "local only"
+    },
+    "lan": {
+      "title": "Devices on the LAN",
+      "none": "No subnet switched on for scanning.",
+      "no_ports": "No open ports on the checked devices.",
+      "ipam_off": "IPAM is not switched on, so there are no subnets.",
+      "stale": "not seen anymore",
+      "stale_hint": "Not seen in IPAM for more than 24 hours; the ports are from the last scan."
+    },
+    "status": {
+      "never": "not read yet",
+      "never_scan": "no scan yet",
+      "last_self": "read",
+      "last_scan": "last scan",
+      "hosts": "{n} devices",
+      "running": "A run is active."
+    },
+    "settings": {
+      "title": "Settings",
+      "interval": "Interval of the LAN scan",
+      "hours": "{n} hours",
+      "ports": "Your own ports",
+      "ports_hint": "In addition to the default list (about 90 common ports), at most 100 ports in total. Ranges like 8000-8010 are possible.",
+      "subnets": "Subnets to scan",
+      "subnets_hint": "Known devices only (seen in the last 24 hours) and private networks only. The scan opens short connections to the ports.",
+      "scan": "Check now",
+      "not_private": "cannot be scanned: not a private network"
+    },
+    "err": {
+      "ports": "Invalid ports. Allowed are numbers from 1 to 65535 and ranges like 8000-8010, separated by commas.",
+      "too_many": "Too many ports (at most 100 including the default list).",
+      "interval": "Invalid interval.",
+      "subnet": "Unknown subnet.",
+      "busy": "A check is already running.",
+      "not_private": "Only private networks can be scanned."
+    },
+    "flash": {
+      "started": "Check started."
     }
   },
   "sonar64": {

@@ -10,6 +10,7 @@ Im Alltag beobachtbar: Verlauf, Meldungen, Dashboard-Karte, Metriken, Export.
 - Karte im Dashboard und Kennzahlen unter `/api/metrics` (`node64_exposure_*`); beides liest nur die Datenbank.
 - Export und Import der Konfiguration (Einstellungen und erwartete Ports; die Subnetz-Auswahl gehört nicht dazu). Der Import prüft zuerst alles und ändert bei einem Fehler nichts.
 - Lokale API: `GET /api/exposure/history`; die Einstellungen kennen `keep_days`, `notify_unexpected`, `notify_new` und `notify_listen`.
+- Darstellung: hervorgehobene Zeilen sind im Dunkelmodus lesbar, ein Ziel ohne Namen zeigt die Adresse nur einmal, die Tabellen tragen auf schmalen Schirmen ihre Spaltenbeschriftung.
 
 ## 0.2.0 – 2026-11-09
 

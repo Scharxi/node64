@@ -348,6 +348,23 @@ func TestExposureReachRender(t *testing.T) {
 	}
 }
 
+// Ein Ziel ohne Namen nennt die Adresse nur einmal, und jede Spalte traegt ihr Label (Kartenansicht auf schmalen Schirmen).
+func TestExposureReachTargetNotRepeatedAndLabelled(t *testing.T) {
+	f := newFakeRouterWeb(t, fakeMap{22, "TCP", 22, "192.168.1.60", "SSH"})
+	a, m := newUPnPApp(t, f, []string{f.srv.URL + "/desc.xml"})
+	if err := m.RunNow(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, body := a.get(t, "/exposure")
+	row := rowOf(body, `data-ext="tcp/22"`)
+	if n := strings.Count(row, "192.168.1.60"); n != 1 {
+		t.Fatalf("the target address shows once, got %d:\n%s", n, row)
+	}
+	if n := strings.Count(row, "data-label="); n != 6 {
+		t.Fatalf("every column has a label, got %d:\n%s", n, row)
+	}
+}
+
 func TestExposureReachOffExplains(t *testing.T) {
 	a, _ := newExposureApp(t, testSockets, true, nil, nil)
 	_, body := a.get(t, "/exposure")

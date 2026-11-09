@@ -120,6 +120,8 @@ a { color: var(--bs-primary); }
 .beats { display: flex; flex-wrap: nowrap; gap: 4px; overflow: hidden; }
 /* Gruppenzeilen in Tabellen: passend zu hell und dunkel (table-light bleibt im Dark Mode hell, Text schlecht lesbar) */
 .table > :not(caption) > tr.table-group > * { --bs-table-bg: var(--bs-tertiary-bg); --bs-table-color: var(--bs-body-color); }
+/* Hervorgehobene Zeilen im Dark Mode: table-warning bleibt sonst hellgelb, abgeblasster Text (text-body-secondary) ist darauf kaum lesbar */
+[data-bs-theme="dark"] .table > :not(caption) > tr.table-warning > * { --bs-table-bg: rgba(255, 193, 7, .16); --bs-table-color: var(--bs-body-color); --bs-table-hover-bg: rgba(255, 193, 7, .22); --bs-table-hover-color: var(--bs-body-color); border-color: var(--bs-border-color); }
 .beat { display: inline-block; width: 6px; height: 20px; border-radius: 50rem; background: silver; flex: 0 0 auto; transition: transform .05s; cursor: pointer; }
 .beat:hover { transform: scaleY(1.15); filter: brightness(1.15); }
 .beat-lg { width: 6px; height: 24px; }

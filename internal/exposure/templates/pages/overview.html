@@ -21,12 +21,12 @@
 			<tbody>
 			{{range $d.Reach}}
 			<tr data-ext="{{.Proto}}/{{.Port}}"{{if eq .Class "unexpected"}} class="table-warning"{{end}}>
-				<td class="font-monospace">{{.Port}}/{{.Proto}}{{if .New}} <span class="badge text-bg-info">{{$.T "exposure.reach.new"}}</span>{{end}}</td>
-				<td class="text-break">{{if eq .Device "self"}}{{$.T "exposure.reach.self"}}{{else}}{{.Device}}{{end}} <span class="font-monospace text-body-secondary">{{.InternalAddr}}:{{.InternalPort}}</span></td>
-				<td>{{if .Listening}}{{$.T "common.yes"}}{{else}}<span class="text-body-secondary">{{$.T "exposure.reach.no_listener"}}</span>{{end}}</td>
-				<td>{{if eq .Level "likely"}}<span class="badge text-bg-warning">{{$.T "exposure.reach.level.likely"}}</span>{{else}}<span class="badge text-bg-secondary">{{$.T "exposure.reach.level.unknown"}}</span>{{end}}</td>
-				<td>{{if eq .Class "expected"}}<span class="badge text-bg-success">{{$.T "exposure.reach.class.expected"}}</span>{{else}}<span class="badge text-bg-danger">{{$.T "exposure.reach.class.unexpected"}}</span>{{end}}</td>
-				<td class="text-break">{{if .Service}}{{.Service}}{{end}}{{if .Description}} <span class="text-body-secondary">{{.Description}}</span>{{end}}</td>
+				<td data-label="{{$.T "exposure.reach.col_port"}}" class="font-monospace">{{.Port}}/{{.Proto}}{{if .New}} <span class="badge text-bg-info">{{$.T "exposure.reach.new"}}</span>{{end}}</td>
+				<td data-label="{{$.T "exposure.reach.col_target"}}" class="text-break">{{if ne .Device .InternalAddr}}{{if eq .Device "self"}}{{$.T "exposure.reach.self"}}{{else}}{{.Device}}{{end}} {{end}}<span class="font-monospace text-body-secondary">{{.InternalAddr}}:{{.InternalPort}}</span></td>
+				<td data-label="{{$.T "exposure.reach.col_listens"}}">{{if .Listening}}{{$.T "common.yes"}}{{else}}<span class="text-body-secondary">{{$.T "exposure.reach.no_listener"}}</span>{{end}}</td>
+				<td data-label="{{$.T "exposure.reach.col_level"}}">{{if eq .Level "likely"}}<span class="badge text-bg-warning">{{$.T "exposure.reach.level.likely"}}</span>{{else}}<span class="badge text-bg-secondary">{{$.T "exposure.reach.level.unknown"}}</span>{{end}}</td>
+				<td data-label="{{$.T "exposure.reach.col_class"}}">{{if eq .Class "expected"}}<span class="badge text-bg-success">{{$.T "exposure.reach.class.expected"}}</span>{{else}}<span class="badge text-bg-danger">{{$.T "exposure.reach.class.unexpected"}}</span>{{end}}</td>
+				<td data-label="{{$.T "exposure.reach.col_service"}}" class="text-break">{{if .Service}}{{.Service}}{{end}}{{if .Description}} <span class="text-body-secondary">{{.Description}}</span>{{end}}</td>
 			</tr>
 			{{end}}
 			</tbody>
@@ -143,11 +143,11 @@
 		<tbody>
 		{{range $d.History}}
 		<tr data-event="{{.Kind}}">
-			<td class="ps-3 text-nowrap"><span title="{{$.Time .At}}">{{$.Ago .At}}</span></td>
-			<td><span class="badge {{if or (eq .Kind "forward_new") (eq .Kind "listen_new")}}text-bg-warning{{else}}text-bg-secondary{{end}}">{{$.T (print "exposure.history.kind." .Kind)}}</span></td>
-			<td class="font-monospace">{{.Port}}/{{.Proto}}</td>
-			<td>{{if eq .Address "self"}}{{$.T "exposure.reach.self"}}{{else}}<span class="font-monospace">{{.Address}}</span>{{end}}</td>
-			<td class="text-break">{{.Detail}}</td>
+			<td data-label="{{$.T "exposure.history.col_time"}}" class="ps-3 text-nowrap"><span title="{{$.Time .At}}">{{$.Ago .At}}</span></td>
+			<td data-label="{{$.T "exposure.history.col_kind"}}"><span class="badge {{if or (eq .Kind "forward_new") (eq .Kind "listen_new")}}text-bg-warning{{else}}text-bg-secondary{{end}}">{{$.T (print "exposure.history.kind." .Kind)}}</span></td>
+			<td data-label="{{$.T "exposure.col.port"}}" class="font-monospace">{{.Port}}/{{.Proto}}</td>
+			<td data-label="{{$.T "exposure.col.address"}}">{{if eq .Address "self"}}{{$.T "exposure.reach.self"}}{{else}}<span class="font-monospace">{{.Address}}</span>{{end}}</td>
+			<td data-label="{{$.T "exposure.history.col_detail"}}" class="text-break">{{.Detail}}</td>
 		</tr>
 		{{end}}
 		</tbody>

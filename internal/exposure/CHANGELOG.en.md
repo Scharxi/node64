@@ -10,6 +10,7 @@ Observable day to day: history, notifications, dashboard card, metrics, export.
 - Dashboard card and metrics at `/api/metrics` (`node64_exposure_*`); both read the database only.
 - Export and import of the configuration (settings and expected ports; the subnet selection is not part of it). The import checks everything first and changes nothing on an error.
 - Local API: `GET /api/exposure/history`; the settings know `keep_days`, `notify_unexpected`, `notify_new` and `notify_listen`.
+- Display: highlighted rows are readable in dark mode, a target without a name shows its address only once, and the tables carry their column labels on narrow screens.
 
 ## 0.2.0 – 2026-11-09
 

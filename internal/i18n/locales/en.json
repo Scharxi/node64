@@ -1904,6 +1904,8 @@
       "ipam_address_ignore": "IPAM: device ignored",
       "ipam_address_delete": "IPAM: address deleted",
       "exposure_settings": "Exposure check: settings changed",
+      "exposure_expected_add": "Exposure check: expected port added",
+      "exposure_expected_remove": "Exposure check: expected port removed",
       "exposure_scan": "Exposure check: check started",
       "dyndns_check": "IP check started",
       "dyndns_settings": "DynDNS settings changed",
@@ -5522,10 +5524,59 @@
       "interval": "Invalid interval.",
       "subnet": "Unknown subnet.",
       "busy": "A check is already running.",
-      "not_private": "Only private networks can be scanned."
+      "not_private": "Only private networks can be scanned.",
+      "invalid_expected": "Invalid port. Allowed are 1 to 65535 with tcp or udp, the note at most 253 characters.",
+      "unsafe_url": "Invalid router address. Allowed is http or https with an IP address on a private network.",
+      "not_found": "Not found."
     },
     "flash": {
       "started": "Check started."
+    },
+    "reach": {
+      "title": "Reachable from the internet?",
+      "off": "Asking the router via UPnP is off. With the switch under \"Settings\" the node asks the router for its active port forwards. For this UPnP sends a search on the LAN (multicast) once an hour.",
+      "asked": "router asked",
+      "external_ip": "external address according to the router",
+      "no_gateway": "No router found. UPnP must be switched on at the router, and the search needs Docker with network_mode: host. Alternatively enter the address of the router by hand under \"Settings\".",
+      "error": "The router could not be read:",
+      "truncated": "The router has more forwards than are read (at most 256).",
+      "none": "The router reports no forwards.",
+      "not_yet": "Not asked yet. \"Check now\" asks right away.",
+      "col_port": "External port",
+      "col_target": "Target",
+      "col_listens": "Listens",
+      "col_level": "Level",
+      "col_class": "Classification",
+      "col_service": "Service",
+      "new": "new",
+      "self": "this node",
+      "no_listener": "no / unknown",
+      "level": {
+        "likely": "likely",
+        "unknown": "unknown"
+      },
+      "class": {
+        "expected": "expected",
+        "unexpected": "unexpected"
+      },
+      "gone_title": "Recently gone",
+      "note": "This only shows what the router knows (UPnP). Static forwards are often missing; \"likely\" is no confirmation from outside, and \"no forward\" proves no security.",
+      "ipv6": "UPnP says nothing about IPv6; without a probe point outside it stays unknown.",
+      "multi": "Several routers answered ({n}). The first one that answers is asked. If that is not the right one, enter the address by hand under \"Settings\"."
+    },
+    "expected": {
+      "title": "Expected ports",
+      "hint": "Ports you deliberately make reachable from the internet. They show up as \"expected\", everything else as \"unexpected\".",
+      "empty": "No ports entered yet.",
+      "proto": "Protocol",
+      "note": "Note",
+      "add": "Add"
+    },
+    "upnp": {
+      "enable": "Ask the router via UPnP",
+      "hint": "Off by default. The node looks for the router on the LAN (multicast) and reads its active port forwards, at most once an hour.",
+      "url": "Address of the router (optional)",
+      "url_hint": "Description of the router, e.g. http://192.168.1.1:5000/rootDesc.xml. Private IP addresses only; empty = search."
     }
   },
   "sonar64": {

@@ -8,6 +8,7 @@ import (
 	"embed"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"sync"
 
 	"github.com/ipv64net/node64/internal/module"
@@ -30,7 +31,7 @@ var changelogEN string
 // Name ist der technische Schluessel des Moduls.
 const Name = "exposure"
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 // Module implementiert module.Module.
 type Module struct {
@@ -45,6 +46,10 @@ type Module struct {
 	subnets   func(ctx context.Context) ([]SubnetRef, error)               // IPAM: Subnetze (nil = nicht verfuegbar)
 	hosts     func(ctx context.Context, subnetID int64) ([]HostRef, error) // IPAM: bekannte Geraete eines Subnetzes
 
+	gateways   func(ctx context.Context) ([]string, error) // Router suchen (SSDP); Tests ersetzen es
+	upnpOpts   UPnPOptions                                 // Grenzen der UPnP-Abfrage
+	localAddrs func() []netip.Addr                         // eigene Adressen der Node (Ziel einer Weiterleitung auf die Node)
+
 	runMu sync.Mutex // ein Lauf (Scan) gleichzeitig
 	st    runState
 
@@ -56,7 +61,10 @@ type Module struct {
 
 // New erzeugt das Modul.
 func New(core *store.Store, log *slog.Logger, nodeVersion string) *Module {
-	return &Module{core: core, log: log.With("module", Name), nodeVersion: nodeVersion, listeners: netstat.Listeners}
+	return &Module{core: core, log: log.With("module", Name), nodeVersion: nodeVersion, listeners: netstat.Listeners,
+		gateways:   func(ctx context.Context) ([]string, error) { return SearchGateways(ctx, DefaultSSDPOptions()) },
+		upnpOpts:   DefaultUPnPOptions(),
+		localAddrs: defaultLocalAddrs}
 }
 
 func (m *Module) Info() module.Info {

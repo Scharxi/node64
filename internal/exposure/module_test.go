@@ -40,8 +40,8 @@ func TestLifecycle(t *testing.T) {
 	if err := reg.Enable(ctx, Name); err != nil {
 		t.Fatal(err)
 	}
-	if !reg.IsRunning(Name) || tables() != 1 {
-		t.Fatalf("enabled: running=%v tables=%d", reg.IsRunning(Name), tables())
+	if !reg.IsRunning(Name) || tables() != 3 {
+		t.Fatalf("enabled: running=%v tables=%d (want 3)", reg.IsRunning(Name), tables())
 	}
 	if err := reg.Disable(ctx, Name); err != nil {
 		t.Fatal(err)
@@ -58,10 +58,10 @@ func TestLifecycle(t *testing.T) {
 func TestInfo(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	i := New(nil, log, "test").Info()
-	if i.Name != "exposure" || i.Path != "/exposure" || !i.Available || i.Order != 47 || i.Version != "0.1.0" || i.Changelog == "" || i.ChangelogEN == "" {
+	if i.Name != "exposure" || i.Path != "/exposure" || !i.Available || i.Order != 47 || i.Version != "0.2.0" || i.Changelog == "" || i.ChangelogEN == "" {
 		t.Fatalf("info: %+v", i)
 	}
-	if rs := i.Releases(); len(rs) != 1 || rs[0].Version != "0.1.0" {
+	if rs := i.Releases(); len(rs) != 2 || rs[0].Version != "0.2.0" || rs[1].Version != "0.1.0" {
 		t.Fatalf("changelog: %+v", rs)
 	}
 }

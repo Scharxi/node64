@@ -17,6 +17,8 @@ const (
 	setPorts    = "exposure.ports"        // eigene Ports, durch Komma getrennt
 	setSubnets  = "exposure.scan_subnets" // IPAM-Subnetze, die gescannt werden (JSON-Liste der IDs)
 	setLastScan = "exposure.last_scan"    // Zeitpunkt des letzten Scans (RFC 3339)
+	setUPnP     = "exposure.upnp"         // Router per UPnP fragen ("1" = ja)
+	setUPnPURL  = "exposure.upnp_url"     // Beschreibungs-Adresse des Routers von Hand (leer = suchen)
 )
 
 var (
@@ -54,6 +56,8 @@ type Settings struct {
 	IntervalHours int
 	Ports         []int   // eigene Ports (zusaetzlich zur Standardliste)
 	Subnets       []int64 // IPAM-Subnetze, die gescannt werden
+	UPnP          bool    // Router per UPnP nach Weiterleitungen fragen (Standard aus)
+	UPnPURL       string  // Beschreibungs-Adresse des Routers von Hand; leer = per SSDP suchen
 }
 
 // LoadSettings liest die Einstellungen; Ungueltiges faellt auf den Standard zurueck.
@@ -68,6 +72,8 @@ func (m *Module) LoadSettings(ctx context.Context) Settings {
 	if raw := m.core.SettingOr(ctx, setSubnets, ""); raw != "" {
 		_ = json.Unmarshal([]byte(raw), &s.Subnets)
 	}
+	s.UPnP = m.core.SettingOr(ctx, setUPnP, "") == "1"
+	s.UPnPURL = m.core.SettingOr(ctx, setUPnPURL, "")
 	return s
 }
 
@@ -79,6 +85,11 @@ func (m *Module) SaveSettings(ctx context.Context, s Settings) error {
 	}
 	if _, err := ScanPorts(s.Ports); err != nil {
 		return err
+	}
+	if s.UPnPURL != "" {
+		if _, err := SafeLocation(s.UPnPURL); err != nil {
+			return err
+		}
 	}
 	if len(s.Subnets) > 0 {
 		known := map[int64]SubnetRef{}
@@ -121,7 +132,12 @@ func (m *Module) saveRaw(ctx context.Context, s Settings) error {
 	if subs == nil {
 		raw = []byte("[]")
 	}
-	for k, v := range map[string]string{setInterval: strconv.Itoa(s.IntervalHours), setPorts: strings.Join(text, ","), setSubnets: string(raw)} {
+	upnp := "0"
+	if s.UPnP {
+		upnp = "1"
+	}
+	for k, v := range map[string]string{setInterval: strconv.Itoa(s.IntervalHours), setPorts: strings.Join(text, ","), setSubnets: string(raw),
+		setUPnP: upnp, setUPnPURL: s.UPnPURL} {
 		if err := m.core.SetSetting(ctx, k, v); err != nil {
 			return err
 		}

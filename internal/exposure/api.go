@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/netip"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ipv64net/node64/internal/module"
@@ -21,6 +23,10 @@ func (m *Module) apiRoutes(mux *http.ServeMux, g module.Guards) {
 	mux.Handle("GET /api/exposure/settings", api(m.apiSettingsGet))
 	mux.Handle("PUT /api/exposure/settings", api(m.apiSettingsPut))
 	mux.Handle("POST /api/exposure/scan", api(m.apiScan))
+	mux.Handle("GET /api/exposure/overview", api(m.apiOverview))
+	mux.Handle("GET /api/exposure/expected", api(m.apiExpectedList))
+	mux.Handle("POST /api/exposure/expected", api(m.apiExpectedAdd))
+	mux.Handle("DELETE /api/exposure/expected/{proto}/{port}", api(m.apiExpectedDelete))
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -46,7 +52,10 @@ func (m *Module) apiErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrBusy):
 		writeErr(w, http.StatusConflict, err.Error())
-	case errors.Is(err, ErrInvalidPorts), errors.Is(err, ErrTooManyPorts), errors.Is(err, ErrInvalidInterval), errors.Is(err, ErrUnknownSubnet), errors.Is(err, ErrSubnetNotPrivate):
+	case errors.Is(err, ErrNotFound):
+		writeErr(w, http.StatusNotFound, "not found")
+	case errors.Is(err, ErrInvalidPorts), errors.Is(err, ErrTooManyPorts), errors.Is(err, ErrInvalidInterval), errors.Is(err, ErrUnknownSubnet),
+		errors.Is(err, ErrSubnetNotPrivate), errors.Is(err, ErrInvalidExpected), errors.Is(err, ErrUnsafeURL):
 		writeErr(w, http.StatusUnprocessableEntity, err.Error())
 	default:
 		m.log.Error("exposure api", "err", err)
@@ -57,7 +66,8 @@ func (m *Module) apiErr(w http.ResponseWriter, err error) {
 func (m *Module) apiStatus(w http.ResponseWriter, r *http.Request) {
 	st := m.Status()
 	writeJSON(w, http.StatusOK, map[string]any{"self_known": st.SelfKnown, "last_self_at": ts(st.LastSelfAt), "last_scan_at": ts(st.LastScanAt),
-		"running": st.Running, "hosts": st.Hosts, "error": st.LastErr})
+		"running": st.Running, "hosts": st.Hosts, "error": st.LastErr,
+		"upnp_at": ts(st.UPnPAt), "upnp_error": st.UPnPErr, "external_ip": st.ExternalIP, "mappings": st.Mappings})
 }
 
 type listenJSON struct {
@@ -100,10 +110,12 @@ type settingsJSON struct {
 	IntervalHours int     `json:"interval_hours"`
 	Ports         []int   `json:"ports"`
 	Subnets       []int64 `json:"subnets"`
+	UPnP          bool    `json:"upnp"`
+	UPnPURL       string  `json:"upnp_url"`
 }
 
 func settingsOut(s Settings) settingsJSON {
-	out := settingsJSON{IntervalHours: s.IntervalHours, Ports: s.Ports, Subnets: s.Subnets}
+	out := settingsJSON{IntervalHours: s.IntervalHours, Ports: s.Ports, Subnets: s.Subnets, UPnP: s.UPnP, UPnPURL: s.UPnPURL}
 	if out.Ports == nil {
 		out.Ports = []int{}
 	}
@@ -124,7 +136,7 @@ func (m *Module) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	s := Settings{IntervalHours: in.IntervalHours, Ports: in.Ports, Subnets: in.Subnets}
+	s := Settings{IntervalHours: in.IntervalHours, Ports: in.Ports, Subnets: in.Subnets, UPnP: in.UPnP, UPnPURL: in.UPnPURL}
 	if err := m.SaveSettings(r.Context(), s); err != nil {
 		m.apiErr(w, err)
 		return
@@ -141,4 +153,110 @@ func (m *Module) apiScan(w http.ResponseWriter, r *http.Request) {
 	}
 	m.audit(r, "exposure.scan", "", "api")
 	writeJSON(w, http.StatusAccepted, map[string]bool{"started": true})
+}
+
+type reachJSON struct {
+	Proto        string     `json:"proto"`
+	Port         int        `json:"port"`
+	Level        Level      `json:"level"`
+	Class        Class      `json:"class"`
+	Device       string     `json:"device"`
+	InternalAddr string     `json:"internal_addr"`
+	InternalPort int        `json:"internal_port"`
+	Service      string     `json:"service"`
+	Description  string     `json:"description"`
+	Listening    bool       `json:"listening"`
+	New          bool       `json:"new"`
+	FirstSeen    *time.Time `json:"first_seen"`
+	LastSeen     *time.Time `json:"last_seen"`
+}
+
+type goneJSON struct {
+	Proto        string     `json:"proto"`
+	Port         int        `json:"port"`
+	InternalAddr string     `json:"internal_addr"`
+	InternalPort int        `json:"internal_port"`
+	Description  string     `json:"description"`
+	FirstSeen    *time.Time `json:"first_seen"`
+	LastSeen     *time.Time `json:"last_seen"`
+}
+
+// apiOverview ist die Gesamtsicht: Weiterleitungen des Routers mit Stufe und Einordnung, dazu die kuerzlich weggefallenen.
+func (m *Module) apiOverview(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	rows, err := m.Listening(ctx, "")
+	if err != nil {
+		m.apiErr(w, err)
+		return
+	}
+	var subs []SubnetRef
+	if m.subnets != nil {
+		subs, _ = m.subnets(ctx)
+	}
+	open, gone, _ := m.reachOverview(ctx, rows, subs)
+	st, set := m.Status(), m.LoadSettings(ctx)
+	out := struct {
+		UPnP map[string]any `json:"upnp"`
+		Open []reachJSON    `json:"open"`
+		Gone []goneJSON     `json:"gone"`
+	}{UPnP: map[string]any{"enabled": set.UPnP, "last_at": ts(st.UPnPAt), "error": st.UPnPErr, "external_ip": st.ExternalIP,
+		"mappings": st.Mappings, "truncated": st.UPnPTruncated, "location": st.UPnPLocation, "gateways": st.UPnPGateways}, Open: []reachJSON{}, Gone: []goneJSON{}}
+	for _, o := range open {
+		out.Open = append(out.Open, reachJSON{Proto: o.Proto, Port: o.Port, Level: o.Level, Class: o.Class, Device: o.Device, InternalAddr: o.InternalAddr,
+			InternalPort: o.InternalPort, Service: o.Service, Description: o.Description, Listening: o.Listening, New: o.New, FirstSeen: ts(o.FirstSeen), LastSeen: ts(o.LastSeen)})
+	}
+	for _, g := range gone {
+		out.Gone = append(out.Gone, goneJSON{Proto: g.Proto, Port: g.Port, InternalAddr: g.InternalAddr, InternalPort: g.InternalPort, Description: g.Description,
+			FirstSeen: ts(g.FirstSeen), LastSeen: ts(g.LastSeen)})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+type expectedJSON struct {
+	Proto string `json:"proto"`
+	Port  int    `json:"port"`
+	Note  string `json:"note"`
+}
+
+func (m *Module) apiExpectedList(w http.ResponseWriter, r *http.Request) {
+	list, err := m.Expecteds(r.Context())
+	if err != nil {
+		m.apiErr(w, err)
+		return
+	}
+	out := make([]expectedJSON, 0, len(list))
+	for _, e := range list {
+		out = append(out, expectedJSON{Proto: e.Proto, Port: e.Port, Note: e.Note})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (m *Module) apiExpectedAdd(w http.ResponseWriter, r *http.Request) {
+	var in expectedJSON
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBody)).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if err := m.AddExpected(r.Context(), in.Proto, in.Port, in.Note); err != nil {
+		m.apiErr(w, err)
+		return
+	}
+	in.Proto = strings.ToLower(strings.TrimSpace(in.Proto))
+	m.audit(r, "exposure.expected_add", in.Proto+"/"+strconv.Itoa(in.Port), "api")
+	writeJSON(w, http.StatusCreated, in)
+}
+
+func (m *Module) apiExpectedDelete(w http.ResponseWriter, r *http.Request) {
+	port, err := strconv.Atoi(r.PathValue("port"))
+	if err != nil {
+		writeErr(w, http.StatusUnprocessableEntity, "port must be a number")
+		return
+	}
+	proto := r.PathValue("proto")
+	if err := m.RemoveExpected(r.Context(), proto, port); err != nil {
+		m.apiErr(w, err)
+		return
+	}
+	m.audit(r, "exposure.expected_remove", strings.ToLower(proto)+"/"+strconv.Itoa(port), "api")
+	w.WriteHeader(http.StatusNoContent)
 }

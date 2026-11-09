@@ -27,6 +27,14 @@ type RunStatus struct {
 	Hosts      int  // Geraete des letzten Scans
 	Running    bool
 	LastErr    string
+
+	UPnPAt        time.Time // letzte erfolgreiche Abfrage des Routers
+	UPnPErr       string    // Grund, warum die letzte Abfrage nichts ergab ("no gateway found" oder Fehlertext)
+	ExternalIP    string    // externe Adresse laut Router
+	Mappings      int       // Weiterleitungen der letzten erfolgreichen Abfrage
+	UPnPTruncated bool      // der Router hatte mehr Weiterleitungen als gelesen wurden
+	UPnPLocation  string    // Beschreibungs-Adresse des Routers, der zuletzt erfolgreich gefragt wurde
+	UPnPGateways  int       // so viele Router haben auf die Suche geantwortet (bei mehr als einem: Adresse von Hand festlegen)
 }
 
 type runState struct {
@@ -36,12 +44,23 @@ type runState struct {
 	hosts      int
 	running    bool
 	lastErr    string
+
+	upnpAt        time.Time
+	upnpTried     time.Time // letzter Versuch (auch ohne Erfolg): bestimmt, wann wieder gefragt wird
+	upnpErr       string
+	externalIP    string
+	mappings      int
+	upnpTruncated bool
+	upnpLocation  string
+	upnpGateways  int
 }
 
 // Status liefert den Zustand der Laeufe.
 func (m *Module) Status() RunStatus {
 	m.st.mu.Lock()
-	s := RunStatus{LastSelfAt: m.st.lastSelfAt, SelfKnown: m.st.selfKnown, Hosts: m.st.hosts, Running: m.st.running, LastErr: m.st.lastErr}
+	s := RunStatus{LastSelfAt: m.st.lastSelfAt, SelfKnown: m.st.selfKnown, Hosts: m.st.hosts, Running: m.st.running, LastErr: m.st.lastErr,
+		UPnPAt: m.st.upnpAt, UPnPErr: m.st.upnpErr, ExternalIP: m.st.externalIP, Mappings: m.st.mappings, UPnPTruncated: m.st.upnpTruncated,
+		UPnPLocation: m.st.upnpLocation, UPnPGateways: m.st.upnpGateways}
 	m.st.mu.Unlock()
 	s.LastScanAt = m.lastScan(context.Background())
 	return s
@@ -184,9 +203,13 @@ func (m *Module) setRunning(on bool) {
 	m.st.mu.Unlock()
 }
 
-// runAll liest die Node und scannt; wer es aufruft, haelt runMu.
+// runAll liest die Node, fragt den Router (wenn eingeschaltet) und scannt; wer es aufruft, haelt runMu.
 func (m *Module) runAll(ctx context.Context, now time.Time) error {
 	if err := m.snapshotSelf(ctx, now); err != nil {
+		m.setErr(err)
+		return err
+	}
+	if err := m.readUPnP(ctx, now); err != nil {
 		m.setErr(err)
 		return err
 	}
@@ -241,11 +264,23 @@ func (m *Module) tick(ctx context.Context, now time.Time) {
 	if err := m.snapshotSelf(ctx, now); err != nil {
 		m.log.Warn("exposure: reading the node failed", "err", err)
 	}
-	if !m.scanDue(ctx, now) {
+	scan, upnp := m.scanDue(ctx, now), m.upnpDue(ctx, now)
+	if !scan && !upnp {
 		return
 	}
-	if err := m.launch(func(ctx context.Context) error { return m.scanSubnets(ctx, now) }); err != nil && !errors.Is(err, ErrBusy) && !errors.Is(err, ErrStopped) {
-		m.log.Warn("exposure: scan not started", "err", err)
+	err := m.launch(func(ctx context.Context) error {
+		if upnp {
+			if err := m.readUPnP(ctx, now); err != nil {
+				return err
+			}
+		}
+		if scan {
+			return m.scanSubnets(ctx, now)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, ErrBusy) && !errors.Is(err, ErrStopped) {
+		m.log.Warn("exposure: run not started", "err", err)
 	}
 }
 

@@ -5,6 +5,75 @@
 
 <div class="card mb-3">
 	<div class="card-header d-flex flex-wrap align-items-center gap-2">
+		<span><i class="bi bi-globe2 text-primary"></i> {{.T "exposure.reach.title"}}</span>
+		<span class="ms-auto small text-body-secondary">{{if $d.Settings.UPnP}}{{if not $d.Status.UPnPAt.IsZero}}{{.T "exposure.reach.asked"}} <span title="{{.Time $d.Status.UPnPAt}}">{{.Ago $d.Status.UPnPAt}}</span>{{if $d.Status.UPnPLocation}} · <span class="font-monospace text-break">{{$d.Status.UPnPLocation}}</span>{{end}}{{if $d.Status.ExternalIP}} · {{.T "exposure.reach.external_ip"}} <span class="font-monospace">{{$d.Status.ExternalIP}}</span>{{end}}{{end}}{{end}}</span>
+	</div>
+	<div class="card-body small">
+		{{if not $d.Settings.UPnP}}
+		<div class="text-body-secondary">{{.T "exposure.reach.off"}}</div>
+		{{else}}
+		{{if $d.Status.UPnPErr}}<div class="alert alert-warning py-2"><i class="bi bi-exclamation-triangle"></i> {{if eq $d.Status.UPnPErr "no gateway found"}}{{.T "exposure.reach.no_gateway"}}{{else}}{{.T "exposure.reach.error"}} {{$d.Status.UPnPErr}}{{end}}</div>{{end}}
+		{{if gt $d.Status.UPnPGateways 1}}<div class="alert alert-info py-2"><i class="bi bi-info-circle"></i> {{.T "exposure.reach.multi" "n" $d.Status.UPnPGateways}}</div>{{end}}
+		{{if $d.Status.UPnPTruncated}}<div class="alert alert-secondary py-2">{{.T "exposure.reach.truncated"}}</div>{{end}}
+		{{if $d.Reach}}
+		<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-2 table-cards small">
+			<thead><tr><th>{{.T "exposure.reach.col_port"}}</th><th>{{.T "exposure.reach.col_target"}}</th><th>{{.T "exposure.reach.col_listens"}}</th><th>{{.T "exposure.reach.col_level"}}</th><th>{{.T "exposure.reach.col_class"}}</th><th>{{.T "exposure.reach.col_service"}}</th></tr></thead>
+			<tbody>
+			{{range $d.Reach}}
+			<tr data-ext="{{.Proto}}/{{.Port}}"{{if eq .Class "unexpected"}} class="table-warning"{{end}}>
+				<td class="font-monospace">{{.Port}}/{{.Proto}}{{if .New}} <span class="badge text-bg-info">{{$.T "exposure.reach.new"}}</span>{{end}}</td>
+				<td class="text-break">{{if eq .Device "self"}}{{$.T "exposure.reach.self"}}{{else}}{{.Device}}{{end}} <span class="font-monospace text-body-secondary">{{.InternalAddr}}:{{.InternalPort}}</span></td>
+				<td>{{if .Listening}}{{$.T "common.yes"}}{{else}}<span class="text-body-secondary">{{$.T "exposure.reach.no_listener"}}</span>{{end}}</td>
+				<td>{{if eq .Level "likely"}}<span class="badge text-bg-warning">{{$.T "exposure.reach.level.likely"}}</span>{{else}}<span class="badge text-bg-secondary">{{$.T "exposure.reach.level.unknown"}}</span>{{end}}</td>
+				<td>{{if eq .Class "expected"}}<span class="badge text-bg-success">{{$.T "exposure.reach.class.expected"}}</span>{{else}}<span class="badge text-bg-danger">{{$.T "exposure.reach.class.unexpected"}}</span>{{end}}</td>
+				<td class="text-break">{{if .Service}}{{.Service}}{{end}}{{if .Description}} <span class="text-body-secondary">{{.Description}}</span>{{end}}</td>
+			</tr>
+			{{end}}
+			</tbody>
+		</table></div>
+		{{else if and (not $d.Status.UPnPErr) (not $d.Status.UPnPAt.IsZero)}}
+		<div class="text-body-secondary mb-2">{{.T "exposure.reach.none"}}</div>
+		{{else if and (not $d.Status.UPnPErr) ($d.Status.UPnPAt.IsZero)}}
+		<div class="text-body-secondary mb-2">{{.T "exposure.reach.not_yet"}}</div>
+		{{end}}
+		{{if $d.Gone}}
+		<div class="fw-semibold mt-2">{{.T "exposure.reach.gone_title"}}</div>
+		<ul class="list-unstyled mb-2">
+			{{range $d.Gone}}<li data-gone="{{.Proto}}/{{.Port}}" class="text-body-secondary"><span class="font-monospace">{{.Port}}/{{.Proto}}</span> → <span class="font-monospace">{{.InternalAddr}}:{{.InternalPort}}</span>{{if .Description}} {{.Description}}{{end}} · <span title="{{$.Time .LastSeen}}">{{$.Ago .LastSeen}}</span></li>{{end}}
+		</ul>
+		{{end}}
+		{{end}}
+		<div class="text-body-secondary mt-2">{{.T "exposure.reach.note"}}</div>
+		<div class="text-body-secondary">{{.T "exposure.reach.ipv6"}}</div>
+	</div>
+</div>
+
+<div class="card mb-3">
+	<div class="card-header"><i class="bi bi-check2-square text-success"></i> {{.T "exposure.expected.title"}}</div>
+	<div class="card-body small">
+		<div class="text-body-secondary mb-2">{{.T "exposure.expected.hint"}}</div>
+		{{if $d.Expecteds}}
+		<ul class="list-group list-group-flush mb-2">
+			{{range $d.Expecteds}}
+			<li class="list-group-item d-flex flex-wrap align-items-center gap-2 px-0">
+				<span class="font-monospace">{{.Port}}/{{.Proto}}</span><span class="text-break text-body-secondary">{{.Note}}</span>
+				<form method="post" action="/exposure/expected/delete" class="ms-auto m-0"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="proto" value="{{.Proto}}"><input type="hidden" name="port" value="{{.Port}}"><button class="btn btn-outline-danger btn-sm" type="submit" title="{{$.T "common.delete"}}"><i class="bi bi-trash"></i></button></form>
+			</li>
+			{{end}}
+		</ul>
+		{{else}}<div class="text-body-secondary mb-2">{{.T "exposure.expected.empty"}}</div>{{end}}
+		<form method="post" action="/exposure/expected" class="row g-2 align-items-end">
+			<input type="hidden" name="_csrf" value="{{.CSRF}}">
+			<div class="col-6 col-md-2"><label class="form-label mb-0" for="ex-ex-port">{{.T "exposure.col.port"}}</label><input class="form-control form-control-sm font-monospace" id="ex-ex-port" name="port" inputmode="numeric" required></div>
+			<div class="col-6 col-md-2"><label class="form-label mb-0" for="ex-ex-proto">{{.T "exposure.expected.proto"}}</label><select class="form-select form-select-sm" id="ex-ex-proto" name="proto"><option value="tcp">tcp</option><option value="udp">udp</option></select></div>
+			<div class="col-md-6"><label class="form-label mb-0" for="ex-ex-note">{{.T "exposure.expected.note"}}</label><input class="form-control form-control-sm" id="ex-ex-note" name="note" maxlength="253"></div>
+			<div class="col-md-2"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> {{.T "exposure.expected.add"}}</button></div>
+		</form>
+	</div>
+</div>
+
+<div class="card mb-3">
+	<div class="card-header d-flex flex-wrap align-items-center gap-2">
 		<span><i class="bi bi-hdd-network text-primary"></i> {{.T "exposure.self.title"}}</span>
 		<span class="ms-auto small text-body-secondary">{{if $d.Status.LastSelfAt.IsZero}}{{.T "exposure.status.never"}}{{else}}{{.T "exposure.status.last_self"}} <span title="{{.Time $d.Status.LastSelfAt}}">{{.Ago $d.Status.LastSelfAt}}</span>{{end}}</span>
 	</div>
@@ -90,6 +159,15 @@
 				<div class="text-body-secondary">{{$.T "exposure.lan.ipam_off"}}</div>
 				{{end}}
 				<div class="form-text">{{.T "exposure.settings.subnets_hint"}}</div>
+			</div>
+			<div class="col-12">
+				<div class="form-check"><input class="form-check-input" type="checkbox" name="upnp" id="ex-upnp"{{if $d.Settings.UPnP}} checked{{end}}><label class="form-check-label" for="ex-upnp">{{.T "exposure.upnp.enable"}}</label></div>
+				<div class="form-text">{{.T "exposure.upnp.hint"}}</div>
+			</div>
+			<div class="col-md-8">
+				<label class="form-label mb-1" for="ex-upnp-url">{{.T "exposure.upnp.url"}}</label>
+				<input class="form-control form-control-sm font-monospace" id="ex-upnp-url" name="upnp_url" value="{{$d.Settings.UPnPURL}}" placeholder="http://192.168.1.1:5000/rootDesc.xml">
+				<div class="form-text">{{.T "exposure.upnp.url_hint"}}</div>
 			</div>
 			<div class="col-12"><button class="btn btn-primary btn-sm" type="submit">{{.T "common.save"}}</button></div>
 		</form>

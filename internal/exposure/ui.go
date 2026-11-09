@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ipv64net/node64/internal/module"
@@ -29,6 +30,8 @@ func (m *Module) uiRoutes(mux *http.ServeMux, g module.Guards) {
 	mux.Handle("GET /exposure", page(m.pageOverview))
 	mux.Handle("POST /exposure/settings", page(m.pageSettings))
 	mux.Handle("POST /exposure/scan", page(m.pageScan))
+	mux.Handle("POST /exposure/expected", page(m.pageExpectedAdd))
+	mux.Handle("POST /exposure/expected/delete", page(m.pageExpectedDelete))
 }
 
 // hostView ist ein Geraet mit offenen Ports.
@@ -63,6 +66,9 @@ type overviewData struct {
 	Settings  Settings
 	PortsText string
 	Intervals []int
+	Reach     []OverviewRow // Weiterleitungen des Routers, zusammengefuehrt mit der Innen-Sicht
+	Gone      []External    // kuerzlich weggefallene Weiterleitungen
+	Expecteds []Expected
 }
 
 func (m *Module) pageOverview(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +104,38 @@ func (m *Module) pageOverview(w http.ResponseWriter, r *http.Request) {
 			d.Self = append(d.Self, l)
 		}
 	}
+	d.Reach, d.Gone, d.Expecteds = m.reachOverview(ctx, rows, subs)
 	m.g.Render(w, r, http.StatusOK, Name+"/overview", "exposure.title", d)
+}
+
+// reachOverview fuehrt die Weiterleitungen des Routers mit der Innen-Sicht (rows) und den Erwartungen zusammen.
+func (m *Module) reachOverview(ctx context.Context, rows []Listen, subs []SubnetRef) ([]OverviewRow, []External, []Expected) {
+	ext, _ := m.Externals(ctx)
+	exp, _ := m.Expecteds(ctx)
+	var local []netip.Addr
+	if m.localAddrs != nil {
+		local = m.localAddrs()
+	}
+	open, gone := Classify(OverviewInput{External: ext, Listen: rows, Expected: exp, Local: local, Names: m.ipamNames(ctx, subs), Now: time.Now().UTC()})
+	return open, gone, exp
+}
+
+// ipamNames liefert die Namen der Geraete aus IPAM je Adresse (leer, wenn IPAM nicht antwortet).
+func (m *Module) ipamNames(ctx context.Context, subs []SubnetRef) map[string]string {
+	names := map[string]string{}
+	if m.hosts == nil {
+		return names
+	}
+	for _, s := range subs {
+		if hs, err := m.hosts(ctx, s.ID); err == nil {
+			for _, h := range hs {
+				if h.Name != "" {
+					names[h.IP.Unmap().String()] = h.Name
+				}
+			}
+		}
+	}
+	return names
 }
 
 // subnetView sammelt die Geraete eines Subnetzes mit offenen Ports (Namen aus IPAM).
@@ -173,6 +210,7 @@ func (m *Module) errText(r *http.Request, err error) string {
 	}{
 		{ErrInvalidPorts, "exposure.err.ports"}, {ErrTooManyPorts, "exposure.err.too_many"}, {ErrInvalidInterval, "exposure.err.interval"},
 		{ErrUnknownSubnet, "exposure.err.subnet"}, {ErrSubnetNotPrivate, "exposure.err.not_private"}, {ErrBusy, "exposure.err.busy"},
+		{ErrInvalidExpected, "exposure.err.invalid_expected"}, {ErrUnsafeURL, "exposure.err.unsafe_url"}, {ErrNotFound, "exposure.err.not_found"},
 	}
 	for _, k := range keys {
 		if errors.Is(err, k.err) {
@@ -192,6 +230,8 @@ func (m *Module) pageSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Ports = ports
+	s.UPnP = r.PostFormValue("upnp") == "on"
+	s.UPnPURL = strings.TrimSpace(r.PostFormValue("upnp_url"))
 	for _, v := range r.PostForm["subnet"] {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			s.Subnets = append(s.Subnets, id)
@@ -213,4 +253,29 @@ func (m *Module) pageScan(w http.ResponseWriter, r *http.Request) {
 	}
 	m.audit(r, "exposure.scan", "", "")
 	m.back(w, r, "success", m.g.T(r, "exposure.flash.started"))
+}
+
+func (m *Module) pageExpectedAdd(w http.ResponseWriter, r *http.Request) {
+	port, err := strconv.Atoi(strings.TrimSpace(r.PostFormValue("port")))
+	if err != nil {
+		port = 0 // AddExpected lehnt Port 0 ab
+	}
+	proto := r.PostFormValue("proto")
+	if err := m.AddExpected(r.Context(), proto, port, r.PostFormValue("note")); err != nil {
+		m.back(w, r, "danger", m.errText(r, err))
+		return
+	}
+	m.audit(r, "exposure.expected_add", strings.ToLower(proto)+"/"+strconv.Itoa(port), "")
+	m.back(w, r, "success", m.g.T(r, "common.saved"))
+}
+
+func (m *Module) pageExpectedDelete(w http.ResponseWriter, r *http.Request) {
+	port, _ := strconv.Atoi(strings.TrimSpace(r.PostFormValue("port")))
+	proto := r.PostFormValue("proto")
+	if err := m.RemoveExpected(r.Context(), proto, port); err != nil {
+		m.back(w, r, "danger", m.errText(r, err))
+		return
+	}
+	m.audit(r, "exposure.expected_remove", strings.ToLower(proto)+"/"+strconv.Itoa(port), "")
+	m.back(w, r, "success", m.g.T(r, "common.saved"))
 }

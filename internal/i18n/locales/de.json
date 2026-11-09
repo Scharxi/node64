@@ -1904,6 +1904,8 @@
       "ipam_address_ignore": "IPAM: Gerät ignoriert",
       "ipam_address_delete": "IPAM: Adresse gelöscht",
       "exposure_settings": "Exposure-Check: Einstellungen geändert",
+      "exposure_expected_add": "Exposure-Check: erwarteten Port eingetragen",
+      "exposure_expected_remove": "Exposure-Check: erwarteten Port entfernt",
       "exposure_scan": "Exposure-Check: Prüfung gestartet",
       "dyndns_check": "IP-Prüfung gestartet",
       "dyndns_settings": "DynDNS-Einstellungen geändert",
@@ -5522,10 +5524,59 @@
       "interval": "Ungültiger Abstand.",
       "subnet": "Unbekanntes Subnetz.",
       "busy": "Es läuft schon eine Prüfung.",
-      "not_private": "Nur private Netze lassen sich scannen."
+      "not_private": "Nur private Netze lassen sich scannen.",
+      "invalid_expected": "Ungültiger Port. Erlaubt sind 1 bis 65535 mit tcp oder udp, die Notiz höchstens 253 Zeichen.",
+      "unsafe_url": "Ungültige Adresse des Routers. Erlaubt ist http oder https mit einer IP-Adresse im privaten Netz.",
+      "not_found": "Nicht gefunden."
     },
     "flash": {
       "started": "Prüfung gestartet."
+    },
+    "reach": {
+      "title": "Aus dem Internet erreichbar?",
+      "off": "Router per UPnP fragen ist aus. Mit dem Schalter unter „Einstellungen“ fragt die Node den Router nach seinen aktiven Port-Weiterleitungen. UPnP sendet dafür einmal pro Stunde eine Suche im LAN (Multicast).",
+      "asked": "Router gefragt",
+      "external_ip": "externe Adresse laut Router",
+      "no_gateway": "Kein Router gefunden. UPnP muss am Router eingeschaltet sein, und die Suche braucht Docker mit network_mode: host. Alternativ lässt sich die Adresse des Routers unter „Einstellungen“ von Hand eintragen.",
+      "error": "Der Router konnte nicht gelesen werden:",
+      "truncated": "Der Router hat mehr Weiterleitungen, als gelesen werden (höchstens 256).",
+      "none": "Der Router meldet keine Weiterleitungen.",
+      "not_yet": "Noch nicht gefragt. „Jetzt prüfen“ fragt sofort.",
+      "col_port": "Externer Port",
+      "col_target": "Ziel",
+      "col_listens": "Lauscht",
+      "col_level": "Stufe",
+      "col_class": "Einordnung",
+      "col_service": "Dienst",
+      "new": "neu",
+      "self": "diese Node",
+      "no_listener": "nein / unbekannt",
+      "level": {
+        "likely": "wahrscheinlich",
+        "unknown": "unbekannt"
+      },
+      "class": {
+        "expected": "erwartet",
+        "unexpected": "unerwartet"
+      },
+      "gone_title": "Kürzlich weggefallen",
+      "note": "Das zeigt nur, was der Router weiß (UPnP). Feste Weiterleitungen fehlen oft; „wahrscheinlich“ ist keine Bestätigung von außen, und „keine Weiterleitung“ beweist keine Sicherheit.",
+      "ipv6": "Bei IPv6 sagt UPnP nichts; ohne Messpunkt außerhalb bleibt es unbekannt.",
+      "multi": "Mehrere Router haben geantwortet ({n}). Gefragt wird der erste, der antwortet. Wenn das nicht der richtige ist, trage die Adresse unter „Einstellungen“ von Hand ein."
+    },
+    "expected": {
+      "title": "Erwartete Ports",
+      "hint": "Ports, die du bewusst aus dem Internet erreichbar machst. Sie erscheinen als „erwartet“, alles andere als „unerwartet“.",
+      "empty": "Noch keine Ports eingetragen.",
+      "proto": "Protokoll",
+      "note": "Notiz",
+      "add": "Eintragen"
+    },
+    "upnp": {
+      "enable": "Router per UPnP fragen",
+      "hint": "Standard aus. Die Node sucht den Router im LAN (Multicast) und liest seine aktiven Port-Weiterleitungen, höchstens einmal pro Stunde.",
+      "url": "Adresse des Routers (optional)",
+      "url_hint": "Beschreibung des Routers, z. B. http://192.168.1.1:5000/rootDesc.xml. Nur IP-Adressen im privaten Netz; leer = suchen."
     }
   },
   "sonar64": {

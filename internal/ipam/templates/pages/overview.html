@@ -1,0 +1,132 @@
+{{define "content"}}
+{{$d := .Data}}
+<h1 class="h4 mb-3"><i class="bi bi-diagram-3 text-primary"></i> {{.T "ipam.title"}}</h1>
+<p class="text-body-secondary small">{{.T "ipam.hint"}}</p>
+
+{{if $d.Outside}}<div class="alert alert-info py-2 small"><i class="bi bi-info-circle"></i> {{.T "ipam.outside" "n" $d.Outside}} <a href="#subnet-form">{{.T "ipam.subnets.add"}}</a></div>{{end}}
+
+{{if not $d.Cards}}<div class="alert alert-secondary small">{{.T "ipam.subnets.empty"}}</div>{{end}}
+
+<div class="row g-3 mb-3">
+	{{range $d.Cards}}
+	<div class="col-md-6 col-xl-4">
+		<a class="card h-100 text-decoration-none text-body{{if .Selected}} border-primary{{end}}" href="/ipam?subnet={{.Subnet.ID}}">
+			<div class="card-body">
+				<div class="fw-semibold">{{.Subnet.Name}}</div>
+				<div class="font-monospace small text-body-secondary mb-2">{{.Subnet.CIDR}}</div>
+				{{if .IPv6}}
+				<div class="small">{{$.T "ipam.card.known" "n" .Stats.Used}}</div>
+				{{else}}
+				<div class="progress mb-2" style="height:8px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{printf "%.0f" .BarWidth}}"><div class="progress-bar {{.BarClass}}" style="width:{{printf "%.1f" .BarWidth}}%"></div></div>
+				<div class="small">{{$.T "ipam.card.used" "used" .Stats.Used "size" .Stats.Size}}{{if .Stats.Reserved}} · {{$.T "ipam.card.reserved" "n" .Stats.Reserved}}{{end}}</div>
+				{{end}}
+				{{if .Stats.New}}<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle"></i> {{$.T "ipam.card.new" "n" .Stats.New}}</div>{{end}}
+				{{if .Stats.Conflicts}}<div class="small text-danger mt-1"><i class="bi bi-x-octagon"></i> {{$.T "ipam.card.conflicts" "n" .Stats.Conflicts}}</div>{{end}}
+			</div>
+		</a>
+	</div>
+	{{end}}
+</div>
+
+{{with $d.Selected}}
+{{$sid := .Subnet.ID}}
+<div class="card mb-3">
+	<div class="card-header d-flex flex-wrap align-items-center gap-2">
+		<span><i class="bi bi-list-ul text-primary"></i> {{.Subnet.Name}} <span class="font-monospace small text-body-secondary">{{.Subnet.CIDR}}</span></span>
+		<span class="ms-auto d-flex flex-wrap gap-2">
+			<span class="btn-group btn-group-sm" role="group" aria-label="{{$.T "ipam.addr.status"}}">
+				<a class="btn btn-outline-secondary{{if not $d.Filter}} active{{end}}" href="/ipam?subnet={{$sid}}">{{$.T "ipam.filter.all"}}</a>
+				{{range $d.Filters}}<a class="btn btn-outline-secondary{{if eq $d.Filter .}} active{{end}}" href="/ipam?subnet={{$sid}}&amp;status={{.}}">{{$.T (print "ipam.status." .)}}</a>{{end}}
+			</span>
+			{{if .Stats.New}}<form method="post" action="/ipam/subnets/{{$sid}}/ack-all" class="m-0"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-check2-all"></i> {{$.T "ipam.addr.ack_all"}}</button></form>{{end}}
+			<form method="post" action="/ipam/subnets/{{$sid}}/delete" class="m-0"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="btn btn-outline-danger btn-sm" type="submit" data-confirm="{{$.T "ipam.subnets.delete_confirm" "name" .Subnet.Name}}"><i class="bi bi-trash"></i> {{$.T "ipam.subnets.delete"}}</button></form>
+		</span>
+	</div>
+	{{if $d.Rows}}
+	<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 table-cards small">
+		<thead><tr><th class="ps-3">{{$.T "ipam.addr.ip"}}</th><th>{{$.T "ipam.addr.name"}}</th><th>{{$.T "ipam.addr.mac"}}</th><th>{{$.T "ipam.addr.status"}}</th><th>{{$.T "ipam.addr.seen"}}</th><th></th></tr></thead>
+		<tbody>
+		{{range $d.Rows}}
+		<tr data-ip="{{.IP}}"{{if eq .Status "new"}} class="table-warning"{{end}}>
+			<td data-label="{{$.T "ipam.addr.ip"}}" class="ps-3 font-monospace text-break">{{.IP}}</td>
+			<td data-label="{{$.T "ipam.addr.name"}}" class="text-break">{{if .Display}}{{.Display}}{{else}}<span class="text-body-secondary">–</span>{{end}}{{if .Note}}<div class="text-body-secondary">{{.Note}}</div>{{end}}</td>
+			<td data-label="{{$.T "ipam.addr.mac"}}" class="font-monospace">{{if .MAC}}{{.MAC}}{{else}}<span class="text-body-secondary">–</span>{{end}}</td>
+			<td data-label="{{$.T "ipam.addr.status"}}">
+				<span class="badge {{if eq .Status "used"}}text-bg-success{{else if eq .Status "new"}}text-bg-warning{{else if eq .Status "reserved"}}text-bg-primary{{else}}text-bg-secondary{{end}}">{{$.T (print "ipam.status." .Status)}}</span>
+				{{if .Reserved}}{{if ne .Status "reserved"}} <span class="badge text-bg-primary">{{$.T "ipam.status.reserved"}}</span>{{end}}{{end}}
+				{{if .Conflict}} <span class="badge text-bg-danger" title="{{.ReservedMAC}}">{{$.T "ipam.status.conflict"}}</span>{{end}}
+				{{if .Ignored}} <span class="badge text-bg-light">{{$.T "ipam.addr.ignored"}}</span>{{end}}
+			</td>
+			<td data-label="{{$.T "ipam.addr.seen"}}" class="text-nowrap">{{if .LastSeen.IsZero}}<span class="text-body-secondary">{{$.T "common.never"}}</span>{{else}}<span title="{{$.Time .LastSeen}}">{{$.Ago .LastSeen}}</span>{{end}}</td>
+			<td class="text-end text-nowrap">
+				{{if eq .Status "new"}}<form method="post" action="/ipam/addresses/{{.ID}}/ack" class="d-inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="subnet" value="{{$sid}}"><button class="btn btn-outline-primary btn-sm" type="submit" title="{{$.T "ipam.addr.ack"}}"><i class="bi bi-check2"></i></button></form>{{end}}
+				<form method="post" action="/ipam/addresses/{{.ID}}/ignore" class="d-inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="subnet" value="{{$sid}}"><input type="hidden" name="on" value="{{if .Ignored}}0{{else}}1{{end}}"><button class="btn btn-outline-secondary btn-sm" type="submit" title="{{if .Ignored}}{{$.T "ipam.addr.unignore"}}{{else}}{{$.T "ipam.addr.ignore"}}{{end}}"><i class="bi {{if .Ignored}}bi-eye{{else}}bi-eye-slash{{end}}"></i></button></form>
+				<button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#edit-{{.ID}}" aria-expanded="false" title="{{$.T "ipam.addr.edit"}}"><i class="bi bi-pencil"></i></button>
+				<form method="post" action="/ipam/addresses/{{.ID}}/delete" class="d-inline"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="subnet" value="{{$sid}}"><button class="btn btn-outline-danger btn-sm" type="submit" data-confirm="{{$.T "ipam.addr.delete_confirm" "ip" .IP}}" title="{{$.T "common.delete"}}"><i class="bi bi-trash"></i></button></form>
+			</td>
+		</tr>
+		<tr class="collapse" id="edit-{{.ID}}"><td colspan="6" class="ps-3">
+			<form method="post" action="/ipam/addresses/{{.ID}}" class="row g-2 align-items-end">
+				<input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="subnet" value="{{$sid}}">
+				<div class="col-md-3"><label class="form-label mb-0" for="n{{.ID}}">{{$.T "ipam.addr.name"}}</label><input class="form-control form-control-sm" id="n{{.ID}}" name="name" value="{{.Name}}" maxlength="253" placeholder="{{.SourceName}}"></div>
+				<div class="col-md-3"><label class="form-label mb-0" for="o{{.ID}}">{{$.T "ipam.addr.note"}}</label><input class="form-control form-control-sm" id="o{{.ID}}" name="note" value="{{.Note}}" maxlength="253"></div>
+				<div class="col-md-3"><label class="form-label mb-0" for="m{{.ID}}">{{$.T "ipam.addr.reserved_mac"}}</label><input class="form-control form-control-sm font-monospace" id="m{{.ID}}" name="reserved_mac" value="{{.ReservedMAC}}" maxlength="17"></div>
+				<div class="col-md-2"><div class="form-check"><input class="form-check-input" type="checkbox" id="r{{.ID}}" name="reserved"{{if .Reserved}} checked{{end}}><label class="form-check-label" for="r{{.ID}}">{{$.T "ipam.addr.reserved"}}</label></div></div>
+				<div class="col-md-1"><button class="btn btn-primary btn-sm" type="submit">{{$.T "common.save"}}</button></div>
+			</form>
+		</td></tr>
+		{{end}}
+		</tbody>
+	</table></div>
+	{{else}}
+	<div class="card-body small text-body-secondary">{{$.T "ipam.addr.empty"}}</div>
+	{{end}}
+	<div class="card-body border-top small">
+		<form method="post" action="/ipam/addresses" class="row g-2 align-items-end">
+			<input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="subnet" value="{{$sid}}">
+			<div class="col-md-3"><label class="form-label mb-0" for="add-ip">{{$.T "ipam.addr.ip"}}</label><input class="form-control form-control-sm font-monospace" id="add-ip" name="ip" required></div>
+			<div class="col-md-3"><label class="form-label mb-0" for="add-name">{{$.T "ipam.addr.name"}}</label><input class="form-control form-control-sm" id="add-name" name="name" maxlength="253"></div>
+			<div class="col-md-3"><label class="form-label mb-0" for="add-mac">{{$.T "ipam.addr.reserved_mac"}}</label><input class="form-control form-control-sm font-monospace" id="add-mac" name="reserved_mac" maxlength="17"></div>
+			<div class="col-md-2"><div class="form-check"><input class="form-check-input" type="checkbox" id="add-res" name="reserved"><label class="form-check-label" for="add-res">{{$.T "ipam.addr.reserved"}}</label></div></div>
+			<div class="col-md-1"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> {{$.T "ipam.addr.add"}}</button></div>
+		</form>
+		<div class="text-body-secondary mt-2">{{$.T "ipam.conflict_help"}}</div>
+	</div>
+</div>
+{{end}}
+
+<div class="row g-3">
+	<div class="col-lg-6">
+		<div class="card" id="subnet-form">
+			<div class="card-header"><i class="bi bi-plus-circle text-primary"></i> {{.T "ipam.subnets.add"}}</div>
+			<div class="card-body small">
+				<form method="post" action="/ipam/subnets" class="row g-2 align-items-end">
+					<input type="hidden" name="_csrf" value="{{.CSRF}}">
+					<div class="col-md-4"><label class="form-label mb-0" for="sn-name">{{.T "ipam.subnets.name"}}</label><input class="form-control form-control-sm" id="sn-name" name="name" required maxlength="253"></div>
+					<div class="col-md-4"><label class="form-label mb-0" for="sn-cidr">{{.T "ipam.subnets.cidr"}}</label><input class="form-control form-control-sm font-monospace" id="sn-cidr" name="cidr" required placeholder="192.168.1.0/24"></div>
+					<div class="col-md-4"><label class="form-label mb-0" for="sn-note">{{.T "ipam.subnets.note"}}</label><input class="form-control form-control-sm" id="sn-note" name="note" maxlength="253"></div>
+					<div class="col-12"><button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> {{.T "ipam.subnets.add"}}</button> <span class="text-body-secondary">{{.T "ipam.subnets.cidr_hint"}}</span></div>
+				</form>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-6">
+		<div class="card">
+			<div class="card-header"><i class="bi bi-plug text-info"></i> {{.T "ipam.source.title"}}</div>
+			<ul class="list-group list-group-flush small">
+				{{range $d.Sources}}
+				<li class="list-group-item">
+					<span class="fw-semibold">{{$.T (print "ipam.source.name." .Name)}}</span>
+					{{if .Err}}<span class="badge text-bg-danger text-break" title="{{.Err}}">{{.Err}}</span>
+					{{else if .LastOK.IsZero}}<span class="text-body-secondary">{{$.T "ipam.source.none"}}</span>
+					{{else}}<span class="text-body-secondary">{{$.T "ipam.source.ok" "n" .Count}} · <span title="{{$.Time .LastOK}}">{{$.Ago .LastOK}}</span></span>{{end}}
+					{{if or (eq .Name "neighbor") (and (not .Err) (eq .Count 0))}}<div class="text-body-secondary">{{$.T (print "ipam.source.hint." .Name)}}</div>{{end}}
+				</li>
+				{{else}}
+				<li class="list-group-item text-body-secondary">{{.T "ipam.source.none"}}</li>
+				{{end}}
+			</ul>
+		</div>
+	</div>
+</div>
+{{end}}

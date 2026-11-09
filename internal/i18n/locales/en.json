@@ -74,6 +74,7 @@
     "connected": "Healthchecks sync connected",
     "disconnected": "Healthchecks sync: hubs unreachable",
     "dns64": "DNS64",
+    "ipam": "IPAM",
     "dashboard": "Dashboard",
     "healthchecks": "Healthchecks",
     "dyndns": "DynDNS",
@@ -1827,6 +1828,7 @@
       "certs": "Certificates",
       "sync": "ipv64 & group",
       "honeypot": "Honeypot64",
+      "ipam": "IPAM",
       "mcp": "AI (MCP)"
     },
     "actions": {
@@ -1891,6 +1893,14 @@
       "check_run": "Check run now",
       "check_pause": "Check paused",
       "check_resume": "Check resumed",
+      "ipam_subnet_add": "IPAM: subnet added",
+      "ipam_subnet_delete": "IPAM: subnet deleted",
+      "ipam_ack_all": "IPAM: all devices acknowledged",
+      "ipam_address_add": "IPAM: address added",
+      "ipam_address_save": "IPAM: address changed",
+      "ipam_address_ack": "IPAM: device acknowledged",
+      "ipam_address_ignore": "IPAM: device ignored",
+      "ipam_address_delete": "IPAM: address deleted",
       "dyndns_check": "IP check started",
       "dyndns_settings": "DynDNS settings changed",
       "dyndns_target_add": "Target added",
@@ -5366,6 +5376,89 @@
       "desc": "Community measurement network: your node sparingly measures latency to other participants and the anchors, following a signed plan from ipv64 – visible on the map at ipv64.net/sonar.",
       "h1": "Ping via ICMP and UDP 6464, fixed limits, never private targets",
       "h2": "Outgoing only or also measured, location only shown blurred"
+    }
+  },
+  "ipam": {
+    "title": "IPAM",
+    "hint": "An address directory that fills itself: devices and names come from DNS64 and the neighbour table. You only add what only you know.",
+    "outside": "{n} addresses seen outside your subnets.",
+    "conflict_help": "A conflict only arises for addresses with a MAC you entered by hand for the reservation. Phones with a random MAC (\"private address\") can trigger it.",
+    "subnets": {
+      "add": "Add subnet",
+      "name": "Name",
+      "cidr": "Network (CIDR)",
+      "cidr_hint": "IPv4 from /8 to /32, IPv6 from /48 to /128.",
+      "note": "Note",
+      "empty": "No subnet yet. Add one and the list fills itself.",
+      "delete": "Delete subnet",
+      "delete_confirm": "Delete subnet {name} and all its addresses?"
+    },
+    "card": {
+      "used": "{used} of {size} in use",
+      "known": "{n} addresses known",
+      "reserved": "{n} reserved",
+      "new": "{n} new",
+      "conflicts": "{n} conflict"
+    },
+    "addr": {
+      "ip": "Address",
+      "name": "Name",
+      "mac": "MAC",
+      "status": "Status",
+      "seen": "Last seen",
+      "note": "Note",
+      "add": "Add",
+      "reserved": "Reserved",
+      "reserved_mac": "MAC of the reservation (optional)",
+      "empty": "No addresses in this view.",
+      "edit": "Edit",
+      "ack": "Acknowledge",
+      "ack_all": "Acknowledge all",
+      "ignore": "Ignore",
+      "unignore": "Stop ignoring",
+      "ignored": "ignored",
+      "delete_confirm": "Remove address {ip} from the list? If it is seen again it shows up as new."
+    },
+    "status": {
+      "used": "in use",
+      "offline": "offline",
+      "reserved": "reserved",
+      "new": "new",
+      "conflict": "conflict"
+    },
+    "filter": {
+      "all": "All"
+    },
+    "source": {
+      "title": "Sources",
+      "name": {
+        "neighbor": "Neighbour table",
+        "dns64": "DNS64"
+      },
+      "none": "not queried yet",
+      "ok": "{n} devices",
+      "hint": {
+        "neighbor": "The neighbour table only has entries for the same network segment (Docker with network_mode: host). Without it MAC addresses are missing.",
+        "dns64": "DNS64 only lists devices while the module runs and query anonymisation is off."
+      }
+    },
+    "err": {
+      "cidr": "Invalid network. Allowed: IPv4 from /8 to /32 and IPv6 from /48 to /128.",
+      "overlap": "The network overlaps an existing subnet.",
+      "label": "Invalid text (at most 253 characters, no control characters).",
+      "mac": "Invalid MAC address.",
+      "ip": "Invalid IP address.",
+      "outside": "The address is not in the subnet.",
+      "exists": "The address is already listed.",
+      "notfound": "Not found."
+    },
+    "flash": {
+      "subnet_added": "Subnet added.",
+      "subnet_deleted": "Subnet deleted.",
+      "acked_all": "{n} devices acknowledged.",
+      "address_added": "Address added.",
+      "address_saved": "Saved.",
+      "address_deleted": "Address deleted."
     }
   },
   "sonar64": {

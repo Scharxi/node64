@@ -74,6 +74,7 @@
     "connected": "Healthchecks-Sync verbunden",
     "disconnected": "Healthchecks-Sync: hubs nicht erreichbar",
     "dns64": "DNS64",
+    "ipam": "IPAM",
     "dashboard": "Dashboard",
     "healthchecks": "Healthchecks",
     "dyndns": "DynDNS",
@@ -1827,6 +1828,7 @@
       "certs": "Zertifikate",
       "sync": "ipv64 & Gruppe",
       "honeypot": "Honeypot64",
+      "ipam": "IPAM",
       "mcp": "KI (MCP)"
     },
     "actions": {
@@ -1891,6 +1893,14 @@
       "check_run": "Check sofort geprüft",
       "check_pause": "Check pausiert",
       "check_resume": "Check fortgesetzt",
+      "ipam_subnet_add": "IPAM: Subnetz angelegt",
+      "ipam_subnet_delete": "IPAM: Subnetz gelöscht",
+      "ipam_ack_all": "IPAM: Alle Geräte bestätigt",
+      "ipam_address_add": "IPAM: Adresse eingetragen",
+      "ipam_address_save": "IPAM: Adresse geändert",
+      "ipam_address_ack": "IPAM: Gerät bestätigt",
+      "ipam_address_ignore": "IPAM: Gerät ignoriert",
+      "ipam_address_delete": "IPAM: Adresse gelöscht",
       "dyndns_check": "IP-Prüfung gestartet",
       "dyndns_settings": "DynDNS-Einstellungen geändert",
       "dyndns_target_add": "Ziel angelegt",
@@ -5366,6 +5376,89 @@
       "desc": "Community-Messnetz: Deine Node misst sparsam nach einem signierten Plan von ipv64 die Latenz zu anderen Teilnehmern und zu den Ankern – sichtbar auf der Karte unter ipv64.net/sonar.",
       "h1": "Ping über ICMP und UDP 6464, feste Grenzen, nie private Ziele",
       "h2": "Nur ausgehend oder auch gemessen werden, Standort öffentlich nur verschleiert"
+    }
+  },
+  "ipam": {
+    "title": "IPAM",
+    "hint": "Adressverzeichnis, das sich selbst füllt: Geräte und Namen kommen aus DNS64 und der Nachbartabelle. Du ergänzt nur, was nur du weißt.",
+    "outside": "{n} Adressen außerhalb deiner Subnetze gesehen.",
+    "conflict_help": "Ein Konflikt entsteht nur bei Adressen mit von Hand eingetragener MAC der Reservierung. Handys mit zufälliger MAC („private Adresse“) können ihn auslösen.",
+    "subnets": {
+      "add": "Subnetz anlegen",
+      "name": "Name",
+      "cidr": "Netz (CIDR)",
+      "cidr_hint": "IPv4 von /8 bis /32, IPv6 von /48 bis /128.",
+      "note": "Notiz",
+      "empty": "Noch kein Subnetz. Lege eines an, dann füllt sich die Liste von selbst.",
+      "delete": "Subnetz löschen",
+      "delete_confirm": "Subnetz {name} samt allen Adressen löschen?"
+    },
+    "card": {
+      "used": "{used} von {size} belegt",
+      "known": "{n} Adressen bekannt",
+      "reserved": "{n} reserviert",
+      "new": "{n} neu",
+      "conflicts": "{n} Konflikt"
+    },
+    "addr": {
+      "ip": "Adresse",
+      "name": "Name",
+      "mac": "MAC",
+      "status": "Status",
+      "seen": "Zuletzt gesehen",
+      "note": "Notiz",
+      "add": "Eintragen",
+      "reserved": "Reserviert",
+      "reserved_mac": "MAC der Reservierung (optional)",
+      "empty": "Keine Adressen in dieser Ansicht.",
+      "edit": "Bearbeiten",
+      "ack": "Bestätigen",
+      "ack_all": "Alle bestätigen",
+      "ignore": "Ignorieren",
+      "unignore": "Nicht mehr ignorieren",
+      "ignored": "ignoriert",
+      "delete_confirm": "Adresse {ip} aus der Liste löschen? Wird sie wieder gesehen, taucht sie neu auf."
+    },
+    "status": {
+      "used": "belegt",
+      "offline": "offline",
+      "reserved": "reserviert",
+      "new": "neu",
+      "conflict": "Konflikt"
+    },
+    "filter": {
+      "all": "Alle"
+    },
+    "source": {
+      "title": "Quellen",
+      "name": {
+        "neighbor": "Nachbartabelle",
+        "dns64": "DNS64"
+      },
+      "none": "noch nicht abgefragt",
+      "ok": "{n} Geräte",
+      "hint": {
+        "neighbor": "Die Nachbartabelle liefert nur im selben Netzsegment etwas (Docker mit network_mode: host). Ohne sie fehlen die MAC-Adressen.",
+        "dns64": "DNS64 liefert nur Geräte, wenn das Modul läuft und die Anonymisierung der Abfragen aus ist."
+      }
+    },
+    "err": {
+      "cidr": "Ungültiges Netz. Erlaubt sind IPv4 von /8 bis /32 und IPv6 von /48 bis /128.",
+      "overlap": "Das Netz überschneidet sich mit einem vorhandenen Subnetz.",
+      "label": "Ungültiger Text (höchstens 253 Zeichen, keine Steuerzeichen).",
+      "mac": "Ungültige MAC-Adresse.",
+      "ip": "Ungültige IP-Adresse.",
+      "outside": "Die Adresse liegt nicht im Subnetz.",
+      "exists": "Die Adresse ist schon eingetragen.",
+      "notfound": "Nicht gefunden."
+    },
+    "flash": {
+      "subnet_added": "Subnetz angelegt.",
+      "subnet_deleted": "Subnetz gelöscht.",
+      "acked_all": "{n} Geräte bestätigt.",
+      "address_added": "Adresse eingetragen.",
+      "address_saved": "Gespeichert.",
+      "address_deleted": "Adresse gelöscht."
     }
   },
   "sonar64": {

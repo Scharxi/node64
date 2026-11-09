@@ -6529,6 +6529,23 @@
             },
             "error": {
               "type": "string"
+            },
+            "upnp_at": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "upnp_error": {
+              "type": "string",
+              "description": "Grund, warum die letzte UPnP-Abfrage nichts ergab (`no gateway found` oder Fehlertext)"
+            },
+            "external_ip": {
+              "type": "string",
+              "description": "externe Adresse laut Router"
+            },
+            "mappings": {
+              "type": "integer",
+              "description": "Weiterleitungen der letzten erfolgreichen Abfrage"
             }
           }
         },
@@ -6609,6 +6626,182 @@
               "items": {
                 "type": "integer"
               }
+            },
+            "upnp": {
+              "type": "boolean",
+              "description": "Router per UPnP nach Weiterleitungen fragen (Standard aus)"
+            },
+            "upnp_url": {
+              "type": "string",
+              "description": "Beschreibung des Routers von Hand (nur IP-Adresse im privaten Netz); leer = per SSDP suchen"
+            }
+          }
+        },
+        "ExposureReach": {
+          "type": "object",
+          "properties": {
+            "proto": {
+              "type": "string",
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "port": {
+              "type": "integer",
+              "description": "externer Port"
+            },
+            "level": {
+              "type": "string",
+              "enum": [
+                "likely",
+                "unknown"
+              ],
+              "description": "Vertrauensstufe: `likely` = der Router leitet weiter und das Ziel lauscht dort; `unknown` = Weiterleitung ohne bekannten lauschenden Dienst. `confirmed` (Bestätigung von außen) kommt später."
+            },
+            "class": {
+              "type": "string",
+              "enum": [
+                "expected",
+                "unexpected"
+              ]
+            },
+            "device": {
+              "type": "string",
+              "description": "`self` für die Node, sonst Name aus IPAM oder Adresse"
+            },
+            "internal_addr": {
+              "type": "string"
+            },
+            "internal_port": {
+              "type": "integer"
+            },
+            "service": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string",
+              "description": "Beschreibung des Routers (fremder Text)"
+            },
+            "listening": {
+              "type": "boolean"
+            },
+            "new": {
+              "type": "boolean",
+              "description": "erste Sichtung vor weniger als 24 Stunden"
+            },
+            "first_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            }
+          }
+        },
+        "ExposureGone": {
+          "type": "object",
+          "properties": {
+            "proto": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "internal_addr": {
+              "type": "string"
+            },
+            "internal_port": {
+              "type": "integer"
+            },
+            "description": {
+              "type": "string"
+            },
+            "first_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            }
+          }
+        },
+        "ExposureOverview": {
+          "type": "object",
+          "properties": {
+            "upnp": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "last_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                },
+                "error": {
+                  "type": "string"
+                },
+                "external_ip": {
+                  "type": "string"
+                },
+                "mappings": {
+                  "type": "integer"
+                },
+                "truncated": {
+                  "type": "boolean"
+                },
+                "location": {
+                  "type": "string",
+                  "description": "Beschreibungs-Adresse des Routers, der zuletzt erfolgreich gefragt wurde"
+                },
+                "gateways": {
+                  "type": "integer",
+                  "description": "so viele Router haben auf die Suche geantwortet (bei mehr als einem: Adresse von Hand festlegen)"
+                }
+              }
+            },
+            "open": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ExposureReach"
+              }
+            },
+            "gone": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ExposureGone"
+              },
+              "description": "in den letzten 7 Tagen weggefallen, neueste zuerst"
+            }
+          }
+        },
+        "ExposureExpected": {
+          "type": "object",
+          "required": [
+            "proto",
+            "port"
+          ],
+          "properties": {
+            "proto": {
+              "type": "string",
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "port": {
+              "type": "integer"
+            },
+            "note": {
+              "type": "string"
             }
           }
         }
@@ -25806,6 +25999,153 @@
             },
             "409": {
               "description": "es läuft schon ein Lauf",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/overview": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Aus dem Internet erreichbar? Weiterleitungen des Routers (UPnP) mit Stufe und Einordnung",
+          "description": "Führt die Weiterleitungen des Routers mit der Innen-Sicht und den erwarteten Ports zusammen. Zeigt nur, was der Router weiß; `likely` ist keine Bestätigung von außen. Bei IPv6 sagt UPnP nichts.",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ExposureOverview"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/expected": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Erwartete Ports",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ExposureExpected"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Erwarteten Port eintragen (ein vorhandener wird aktualisiert)",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExposureExpected"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "eingetragen",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ExposureExpected"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "ungültiges JSON",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Protokoll weder tcp noch udp, Port außerhalb 1 bis 65535 oder Notiz ungültig",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/expected/{proto}/{port}": {
+        "delete": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Erwarteten Port entfernen",
+          "parameters": [
+            {
+              "name": "proto",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "tcp",
+                  "udp"
+                ]
+              }
+            },
+            {
+              "name": "port",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "entfernt"
+            },
+            "404": {
+              "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Port keine Zahl",
               "content": {
                 "application/json": {
                   "schema": {

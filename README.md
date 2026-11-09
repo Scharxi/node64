@@ -189,11 +189,12 @@ Das Modul *IPAM* (in den Einstellungen einschalten) ist ein Adressverzeichnis, d
 
 ## Exposure-Check (Innen-Sicht)
 
-Das Modul *Exposure-Check* (in den Einstellungen einschalten) zeigt, **auf welcher Adresse welche Ports lauschen**. Ausgeschaltet läuft nichts. Ob ein Port aus dem Internet erreichbar ist, zeigt erst die Außen-Sicht (folgt); „lauscht“ heißt nicht „erreichbar“.
+Das Modul *Exposure-Check* (in den Einstellungen einschalten) zeigt, **auf welcher Adresse welche Ports lauschen**. Ausgeschaltet läuft nichts. „Lauscht“ heißt nicht „erreichbar“: ob ein Port aus dem Internet erreichbar ist, zeigt die Außen-Sicht (UPnP als Indiz, ein Messpunkt außerhalb als Bestätigung folgt).
 
 - **Diese Node:** Die lauschenden Sockets werden aus `/proc` gelesen (nur Linux, kein Netzverkehr, alle 5 Minuten). Zu jedem Port steht das besitzende Modul; ein Port ohne Besitzer erscheint als *fremdes Programm*. Im Container gilt der Netz-Namensraum des Containers, mit `network_mode: host` der des Hosts.
 - **Geräte im LAN (optional):** Je IPAM-Subnetz einschaltbar. Geprüft werden nur **bekannte** Geräte (in den letzten 24 Stunden gesehen) per TCP-Connect auf rund 90 häufige Ports plus eigene (höchstens 100), nur in privaten Netzen. Abstand 1, 6, 24 oder 168 Stunden. Ein Gerät, das gerade nicht antwortet, behält seine bekannten Ports.
-- **API:** `GET /api/exposure/status`, `GET /api/exposure/listen?address=self|<ip>`, `GET|PUT /api/exposure/settings`, `POST /api/exposure/scan`.
+- **Aus dem Internet erreichbar? (optional, Standard aus):** Die Node fragt den Router per UPnP (Suche per Multicast, braucht `network_mode: host`; die Adresse des Routers lässt sich auch von Hand eintragen, nur im privaten Netz) nach seinen aktiven Port-Weiterleitungen, höchstens einmal pro Stunde. Jede Weiterleitung bekommt eine Stufe (*wahrscheinlich*, wenn das Ziel laut Innen-Sicht dort lauscht, sonst *unbekannt*) und eine Einordnung (*erwartet* für Ports der Node mit Besitzer und für eingetragene „erwartete Ports“, sonst *unerwartet*). Das zeigt nur, was der Router weiß; feste Weiterleitungen fehlen oft, und bei IPv6 sagt UPnP nichts.
+- **API:** `GET /api/exposure/status`, `GET /api/exposure/listen?address=self|<ip>`, `GET|PUT /api/exposure/settings`, `POST /api/exposure/scan`, `GET /api/exposure/overview`, `GET|POST /api/exposure/expected`, `DELETE /api/exposure/expected/{proto}/{port}`.
 
 ## DNS64 (lokaler DNS-Resolver)
 

@@ -6,6 +6,7 @@ Kurz, was sich je Version ändert. Einzelheiten je Modul stehen in der Node unte
 
 - IPAM: Neues Modul – Subnetze und ein Adressverzeichnis, das sich selbst aus DNS64 und der Nachbartabelle füllt; unbekannte Geräte erscheinen als „neu“, Namen, Notizen und Reservierungen trägt man von Hand ein.
 - Exposure-Check: Neues Modul (Innen-Sicht) – zeigt, auf welchen Ports die Node lauscht und welches Modul den Port besitzt; prüft optional bekannte Geräte der IPAM-Subnetze auf offene Ports (nur private Netze, je Subnetz einschaltbar).
+- Exposure-Check: Optional fragt die Node den Router per UPnP nach seinen aktiven Port-Weiterleitungen („Aus dem Internet erreichbar?“, mit Stufe *wahrscheinlich*/*unbekannt* und Einordnung *erwartet*/*unerwartet*); erwartete Ports lassen sich eintragen.
 
 ## 1.4.0 – 2026-11-09
 

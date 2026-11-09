@@ -19,13 +19,40 @@ func itoa(n int) string { return strconv.Itoa(n) }
 
 const listenCols = `address, proto, port, state, service, bind, owner, first_seen, last_seen, source`
 
-// upsert nimmt einen offenen Port auf: first_seen bleibt, last_seen rueckt vor, ein "gone" wird wieder "open".
-func upsert(ctx context.Context, tx execer, now time.Time, r Listen) error {
+// upsert nimmt einen offenen Port auf: first_seen bleibt, last_seen rueckt vor, ein "gone" wird wieder "open". Neu angelegt
+// oder wieder geoeffnet ergibt ein Ereignis listen_new, ausser in der Baseline der Adresse (baseline = die Adresse hatte
+// vor diesem Aufruf noch keine Zeile).
+func upsert(ctx context.Context, tx txer, now time.Time, r Listen, baseline bool) error {
+	var prev string
+	err := tx.QueryRowContext(ctx, `SELECT state FROM exposure_listen WHERE address = ? AND proto = ? AND port = ?`, r.Address, r.Proto, r.Port).Scan(&prev)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
 	ts := store.FormatTime(now)
-	_, err := tx.ExecContext(ctx, `INSERT INTO exposure_listen (`+listenCols+`) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO exposure_listen (`+listenCols+`) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(address, proto, port) DO UPDATE SET state = 'open', service = excluded.service, bind = excluded.bind,
 		owner = excluded.owner, last_seen = excluded.last_seen, source = excluded.source`,
-		r.Address, r.Proto, r.Port, r.Service, r.Bind, r.Owner, ts, ts, r.Source)
+		r.Address, r.Proto, r.Port, r.Service, r.Bind, r.Owner, ts, ts, r.Source); err != nil {
+		return err
+	}
+	switch {
+	case err == sql.ErrNoRows && !baseline, prev == "gone":
+		return addEvent(ctx, tx, now, EventListenNew, r.Proto, r.Port, r.Address, r.Service)
+	}
+	return nil
+}
+
+// hasSeen sagt, ob die Adresse schon einmal aufgenommen wurde (sonst ist der naechste Aufruf ihre Baseline). Das gilt
+// auch fuer ein Geraet ohne offene Ports: sein erster offener Port ist spaeter ein Ereignis.
+func hasSeen(ctx context.Context, tx txer, address string) (bool, error) {
+	var n int
+	err := tx.QueryRowContext(ctx, `SELECT count(*) FROM exposure_seen WHERE address = ?`, address).Scan(&n)
+	return n > 0, err
+}
+
+// markSeen merkt die Adresse als aufgenommen.
+func markSeen(ctx context.Context, tx txer, now time.Time, address string) error {
+	_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO exposure_seen (address, at) VALUES (?, ?)`, address, store.FormatTime(now))
 	return err
 }
 
@@ -36,10 +63,14 @@ func (m *Module) recordSelf(ctx context.Context, now time.Time, rows []Listen) e
 		return err
 	}
 	defer tx.Rollback()
+	existing, err := hasSeen(ctx, tx, SelfAddress)
+	if err != nil {
+		return err
+	}
 	seen := map[string]bool{}
 	for _, r := range rows {
 		r.Address, r.Source = SelfAddress, "self"
-		if err := upsert(ctx, tx, now, r); err != nil {
+		if err := upsert(ctx, tx, now, r, !existing); err != nil {
 			return err
 		}
 		seen[portKey(r.Proto, r.Port)] = true
@@ -64,6 +95,12 @@ func (m *Module) recordSelf(ctx context.Context, now time.Time, rows []Listen) e
 		if _, err := tx.ExecContext(ctx, `UPDATE exposure_listen SET state = 'gone' WHERE address = ? AND proto = ? AND port = ?`, SelfAddress, l.Proto, l.Port); err != nil {
 			return err
 		}
+		if err := addEvent(ctx, tx, now, EventListenGone, l.Proto, l.Port, SelfAddress, ""); err != nil {
+			return err
+		}
+	}
+	if err := markSeen(ctx, tx, now, SelfAddress); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
@@ -83,16 +120,29 @@ func (m *Module) recordHost(ctx context.Context, now time.Time, ip netip.Addr, r
 		return err
 	}
 	defer tx.Rollback()
+	existing, err := hasSeen(ctx, tx, addr)
+	if err != nil {
+		return err
+	}
 	for _, r := range rs {
 		if r.State == StateOpen {
-			if err := upsert(ctx, tx, now, Listen{Address: addr, Proto: "tcp", Port: r.Port, Service: ServiceName("tcp", r.Port), Source: "scan"}); err != nil {
+			if err := upsert(ctx, tx, now, Listen{Address: addr, Proto: "tcp", Port: r.Port, Service: ServiceName("tcp", r.Port), Source: "scan"}, !existing); err != nil {
 				return err
 			}
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE exposure_listen SET state = 'gone' WHERE address = ? AND proto = 'tcp' AND port = ? AND state = 'open'`, addr, r.Port); err != nil {
+		res, err := tx.ExecContext(ctx, `UPDATE exposure_listen SET state = 'gone' WHERE address = ? AND proto = 'tcp' AND port = ? AND state = 'open'`, addr, r.Port)
+		if err != nil {
 			return err
 		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			if err := addEvent(ctx, tx, now, EventListenGone, "tcp", r.Port, addr, ""); err != nil {
+				return err
+			}
+		}
+	}
+	if err := markSeen(ctx, tx, now, addr); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
@@ -146,6 +196,15 @@ func less(a, b Listen) bool {
 
 // Forget loescht die Zeilen einer Adresse (z. B. Geraet nicht mehr in IPAM).
 func (m *Module) Forget(ctx context.Context, address string) error {
-	_, err := m.core.Writer().ExecContext(ctx, `DELETE FROM exposure_listen WHERE address = ?`, address)
-	return err
+	tx, err := m.core.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, table := range []string{"exposure_listen", "exposure_seen"} {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM `+table+` WHERE address = ?`, address); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

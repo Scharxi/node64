@@ -68,6 +68,11 @@ const (
 	KindHoneypotWatch Kind = "honeypot_watch" // Honeypot64-Fruehwarnung: eigenes Netz bzw. DynDNS-IP als Angreifer aufgefallen
 	KindHoneypotLogin Kind = "honeypot_login" // Honeypot64: viele Fehlversuche an der Anmeldung von Node64 (Regel node64/login)
 
+	// Exposure-Check (ohne Check, nur lokal): Weiterleitungen des Routers und lauschende Ports
+	KindExposureUnexpected Kind = "exposure_unexpected" // neue Weiterleitung, die nicht als erwartet eingetragen ist
+	KindExposureNew        Kind = "exposure_new"        // neue erwartete Weiterleitung
+	KindExposureListen     Kind = "exposure_listen"     // neuer lauschender Port auf der Node oder einem Geraet
+
 	// Proxmox VE (Healthchecks, ohne Check; Gaeste „als Check“ melden ihren Zustand ueber den Check)
 	KindProxmoxDown        Kind = "proxmox_down"         // System nicht erreichbar, Node offline, Gast gestoppt/angehalten/abgestuerzt
 	KindProxmoxUp          Kind = "proxmox_up"           // Entwarnung
@@ -128,6 +133,11 @@ func IsHoneypot(k Kind) bool {
 	return k == KindHoneypotNew || k == KindHoneypotWatch || k == KindHoneypotLogin
 }
 
+// IsExposure: Meldung des Exposure-Checks.
+func IsExposure(k Kind) bool {
+	return k == KindExposureUnexpected || k == KindExposureNew || k == KindExposureListen
+}
+
 // IsProxmox: Meldung der Proxmox-VE-Ueberwachung.
 func IsProxmox(k Kind) bool {
 	return k == KindProxmoxDown || k == KindProxmoxUp || k == KindProxmoxThreshold || k == KindProxmoxThresholdOK || k == KindProxmoxRestarted
@@ -136,10 +146,10 @@ func IsProxmox(k Kind) bool {
 // IsUpdate: Meldung des Selbst-Updates.
 func IsUpdate(k Kind) bool { return k == KindUpdateOK || k == KindUpdateFailed }
 
-// IsModule: Meldung eines Moduls ohne Check (DynDNS, DNS64, Zertifikate, CDN64 online, Cluster, Honeypot64, Proxmox VE,
-// Selbst-Update).
+// IsModule: Meldung eines Moduls ohne Check (DynDNS, DNS64, Zertifikate, CDN64 online, Cluster, Honeypot64, Exposure-Check,
+// Proxmox VE, Selbst-Update).
 func IsModule(k Kind) bool {
-	return IsDynDNS(k) || IsDNS64(k) || IsCert(k) || IsCDN64(k) || IsCluster(k) || IsHoneypot(k) || IsProxmox(k) || IsUpdate(k)
+	return IsDynDNS(k) || IsDNS64(k) || IsCert(k) || IsCDN64(k) || IsCluster(k) || IsHoneypot(k) || IsExposure(k) || IsProxmox(k) || IsUpdate(k)
 }
 
 // Message ist die fertig formulierte Nachricht fuer einen Sender.

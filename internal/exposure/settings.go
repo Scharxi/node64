@@ -19,6 +19,11 @@ const (
 	setLastScan = "exposure.last_scan"    // Zeitpunkt des letzten Scans (RFC 3339)
 	setUPnP     = "exposure.upnp"         // Router per UPnP fragen ("1" = ja)
 	setUPnPURL  = "exposure.upnp_url"     // Beschreibungs-Adresse des Routers von Hand (leer = suchen)
+	setKeepDays = "exposure.keep_days"    // Aufbewahrung des Verlaufs in Tagen (0 = unbegrenzt)
+
+	setNotifyUnexpected = "exposure.notify_unexpected" // unerwartete Weiterleitung melden ("0" = nein, sonst ja)
+	setNotifyNew        = "exposure.notify_new"        // erwartete neue Weiterleitung melden ("1" = ja)
+	setNotifyListen     = "exposure.notify_listen"     // neuen lauschenden Port melden ("1" = ja)
 )
 
 var (
@@ -29,6 +34,14 @@ var (
 
 // IntervalOptions sind die waehlbaren Abstaende des LAN-Scans in Stunden (der erste Wert nach 24 ist der Standard).
 var IntervalOptions = []int{1, 6, 24, 168}
+
+// KeepDaysOptions: Aufbewahrung des Verlaufs in Tagen, 0 = unbegrenzt.
+var KeepDaysOptions = []int{30, 90, 365, 0}
+
+const defaultKeepDays = 90
+
+// ErrInvalidKeepDays: die Aufbewahrung ist keiner der Werte aus KeepDaysOptions.
+var ErrInvalidKeepDays = errors.New("exposure: invalid retention")
 
 const defaultInterval = 24
 
@@ -58,11 +71,19 @@ type Settings struct {
 	Subnets       []int64 // IPAM-Subnetze, die gescannt werden
 	UPnP          bool    // Router per UPnP nach Weiterleitungen fragen (Standard aus)
 	UPnPURL       string  // Beschreibungs-Adresse des Routers von Hand; leer = per SSDP suchen
+	KeepDays      int     // Aufbewahrung des Verlaufs in Tagen (30, 90, 365; 0 = unbegrenzt)
+
+	NotifyUnexpected bool // unerwartete neue Weiterleitung melden (Standard an)
+	NotifyNew        bool // erwartete neue Weiterleitung melden (Standard aus)
+	NotifyListen     bool // neuen lauschenden Port melden (Standard aus)
 }
 
 // LoadSettings liest die Einstellungen; Ungueltiges faellt auf den Standard zurueck.
 func (m *Module) LoadSettings(ctx context.Context) Settings {
-	s := Settings{IntervalHours: defaultInterval}
+	s := Settings{IntervalHours: defaultInterval, KeepDays: defaultKeepDays}
+	s.NotifyUnexpected = m.core.SettingOr(ctx, setNotifyUnexpected, "") != "0"
+	s.NotifyNew = m.core.SettingOr(ctx, setNotifyNew, "") == "1"
+	s.NotifyListen = m.core.SettingOr(ctx, setNotifyListen, "") == "1"
 	if n, err := strconv.Atoi(m.core.SettingOr(ctx, setInterval, "")); err == nil && slices.Contains(IntervalOptions, n) {
 		s.IntervalHours = n
 	}
@@ -71,6 +92,9 @@ func (m *Module) LoadSettings(ctx context.Context) Settings {
 	}
 	if raw := m.core.SettingOr(ctx, setSubnets, ""); raw != "" {
 		_ = json.Unmarshal([]byte(raw), &s.Subnets)
+	}
+	if n, err := strconv.Atoi(m.core.SettingOr(ctx, setKeepDays, "")); err == nil && slices.Contains(KeepDaysOptions, n) {
+		s.KeepDays = n
 	}
 	s.UPnP = m.core.SettingOr(ctx, setUPnP, "") == "1"
 	s.UPnPURL = m.core.SettingOr(ctx, setUPnPURL, "")
@@ -85,6 +109,9 @@ func (m *Module) SaveSettings(ctx context.Context, s Settings) error {
 	}
 	if _, err := ScanPorts(s.Ports); err != nil {
 		return err
+	}
+	if !slices.Contains(KeepDaysOptions, s.KeepDays) {
+		return ErrInvalidKeepDays
 	}
 	if s.UPnPURL != "" {
 		if _, err := SafeLocation(s.UPnPURL); err != nil {
@@ -136,11 +163,18 @@ func (m *Module) saveRaw(ctx context.Context, s Settings) error {
 	if s.UPnP {
 		upnp = "1"
 	}
-	for k, v := range map[string]string{setInterval: strconv.Itoa(s.IntervalHours), setPorts: strings.Join(text, ","), setSubnets: string(raw),
-		setUPnP: upnp, setUPnPURL: s.UPnPURL} {
+	for k, v := range map[string]string{setNotifyUnexpected: flag(s.NotifyUnexpected), setNotifyNew: flag(s.NotifyNew), setNotifyListen: flag(s.NotifyListen), setInterval: strconv.Itoa(s.IntervalHours), setPorts: strings.Join(text, ","), setSubnets: string(raw),
+		setUPnP: upnp, setUPnPURL: s.UPnPURL, setKeepDays: strconv.Itoa(s.KeepDays)} {
 		if err := m.core.SetSetting(ctx, k, v); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func flag(on bool) string {
+	if on {
+		return "1"
+	}
+	return "0"
 }

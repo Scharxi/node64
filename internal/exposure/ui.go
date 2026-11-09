@@ -69,6 +69,8 @@ type overviewData struct {
 	Reach     []OverviewRow // Weiterleitungen des Routers, zusammengefuehrt mit der Innen-Sicht
 	Gone      []External    // kuerzlich weggefallene Weiterleitungen
 	Expecteds []Expected
+	History   []Event // letzte Aenderungen
+	KeepDays  []int
 }
 
 func (m *Module) pageOverview(w http.ResponseWriter, r *http.Request) {
@@ -105,6 +107,8 @@ func (m *Module) pageOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.Reach, d.Gone, d.Expecteds = m.reachOverview(ctx, rows, subs)
+	d.History, _ = m.Events(ctx, 50)
+	d.KeepDays = KeepDaysOptions
 	m.g.Render(w, r, http.StatusOK, Name+"/overview", "exposure.title", d)
 }
 
@@ -210,7 +214,7 @@ func (m *Module) errText(r *http.Request, err error) string {
 	}{
 		{ErrInvalidPorts, "exposure.err.ports"}, {ErrTooManyPorts, "exposure.err.too_many"}, {ErrInvalidInterval, "exposure.err.interval"},
 		{ErrUnknownSubnet, "exposure.err.subnet"}, {ErrSubnetNotPrivate, "exposure.err.not_private"}, {ErrBusy, "exposure.err.busy"},
-		{ErrInvalidExpected, "exposure.err.invalid_expected"}, {ErrUnsafeURL, "exposure.err.unsafe_url"}, {ErrNotFound, "exposure.err.not_found"},
+		{ErrInvalidExpected, "exposure.err.invalid_expected"}, {ErrInvalidKeepDays, "exposure.err.keep_days"}, {ErrUnsafeURL, "exposure.err.unsafe_url"}, {ErrNotFound, "exposure.err.not_found"},
 	}
 	for _, k := range keys {
 		if errors.Is(err, k.err) {
@@ -230,6 +234,17 @@ func (m *Module) pageSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Ports = ports
+	s.KeepDays = m.LoadSettings(r.Context()).KeepDays // ohne Feld bleibt der Wert (sonst wuerde ein altes Formular "unbegrenzt" setzen)
+	if v := strings.TrimSpace(r.PostFormValue("keep_days")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			n = -1 // SaveSettings lehnt es ab
+		}
+		s.KeepDays = n
+	}
+	s.NotifyUnexpected = r.PostFormValue("notify_unexpected") == "on" // das Formular traegt alle Schalter: nicht angehakt heisst aus
+	s.NotifyNew = r.PostFormValue("notify_new") == "on"
+	s.NotifyListen = r.PostFormValue("notify_listen") == "on"
 	s.UPnP = r.PostFormValue("upnp") == "on"
 	s.UPnPURL = strings.TrimSpace(r.PostFormValue("upnp_url"))
 	for _, v := range r.PostForm["subnet"] {

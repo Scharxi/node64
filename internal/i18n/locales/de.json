@@ -3125,7 +3125,10 @@
       "docker_threshold_ok": "🟢 Docker: {name} wieder unter der Schwelle",
       "docker_restarted": "🔄 Docker: {name} neu gestartet",
       "update_ok": "✅ Node64 auf {name} aktualisiert",
-      "update_failed": "🔴 Node64-Update auf {name} fehlgeschlagen"
+      "update_failed": "🔴 Node64-Update auf {name} fehlgeschlagen",
+      "exposure_unexpected": "🚨 Exposure-Check: unerwartet erreichbar: {name}",
+      "exposure_new": "🆕 Exposure-Check: neue Weiterleitung: {name}",
+      "exposure_listen": "🔎 Exposure-Check: neuer lauschender Port: {name}"
     },
     "body": {
       "quota_used": "Verbraucht: {used} von {limit} Online-Messungen heute",
@@ -3150,7 +3153,10 @@
       "dyndns_limit_reached": "ipv64: Tageslimit für Updates erreicht.",
       "cluster_suspended": "Ausgesetzt: {reason}",
       "update_ok": "Node64 läuft stabil mit Version {version} (vorher {from}).",
-      "update_failed": "Die neue Version {version} ist nicht stabil gelaufen. Node64 läuft wieder mit {back}, die Datenbank von vor dem Update ist zurückgespielt."
+      "update_failed": "Die neue Version {version} ist nicht stabil gelaufen. Node64 läuft wieder mit {back}, die Datenbank von vor dem Update ist zurückgespielt.",
+      "exposure_unexpected": "{count} neue Weiterleitung(en) am Router, die du nicht als erwartet eingetragen hast: {list}",
+      "exposure_new": "{count} neue erwartete Weiterleitung(en) am Router: {list}",
+      "exposure_listen": "{count} neue(r) lauschende(r) Port(s): {list}"
     },
     "reason": {
       "traffic": "Traffic-Kontingent aufgebraucht",
@@ -5516,7 +5522,15 @@
       "subnets": "Subnetze scannen",
       "subnets_hint": "Nur bekannte Geräte (in den letzten 24 Stunden gesehen) und nur private Netze. Der Scan baut kurze Verbindungen zu den Ports auf.",
       "scan": "Jetzt prüfen",
-      "not_private": "nicht scanbar: kein privates Netz"
+      "not_private": "nicht scanbar: kein privates Netz",
+      "keep_days": "Verlauf aufbewahren",
+      "keep_days_n": "{n} Tage",
+      "keep_unlimited": "unbegrenzt",
+      "notify": "Meldungen",
+      "notify_unexpected": "Meldung bei unerwarteter Weiterleitung",
+      "notify_new": "Meldung bei neuer erwarteter Weiterleitung",
+      "notify_listen": "Meldung bei neuem lauschendem Port",
+      "notify_hint": "Die Meldungen gehen über die eingerichteten Kanäle. Dieselbe Änderung wird höchstens einmal in 24 Stunden gemeldet."
     },
     "err": {
       "ports": "Ungültige Ports. Erlaubt sind Zahlen von 1 bis 65535 und Bereiche wie 8000-8010, getrennt durch Komma.",
@@ -5527,7 +5541,8 @@
       "not_private": "Nur private Netze lassen sich scannen.",
       "invalid_expected": "Ungültiger Port. Erlaubt sind 1 bis 65535 mit tcp oder udp, die Notiz höchstens 253 Zeichen.",
       "unsafe_url": "Ungültige Adresse des Routers. Erlaubt ist http oder https mit einer IP-Adresse im privaten Netz.",
-      "not_found": "Nicht gefunden."
+      "not_found": "Nicht gefunden.",
+      "keep_days": "Ungültige Aufbewahrung."
     },
     "flash": {
       "started": "Prüfung gestartet."
@@ -5577,6 +5592,26 @@
       "hint": "Standard aus. Die Node sucht den Router im LAN (Multicast) und liest seine aktiven Port-Weiterleitungen, höchstens einmal pro Stunde.",
       "url": "Adresse des Routers (optional)",
       "url_hint": "Beschreibung des Routers, z. B. http://192.168.1.1:5000/rootDesc.xml. Nur IP-Adressen im privaten Netz; leer = suchen."
+    },
+    "card": {
+      "node": "Offene Ports (Node)",
+      "hosts": "Geräte mit offenen Ports",
+      "forwards": "Weiterleitungen",
+      "unexpected": "davon unerwartet",
+      "changes": "Änderungen (24 Std.)"
+    },
+    "history": {
+      "title": "Verlauf",
+      "empty": "Noch keine Änderungen.",
+      "col_time": "Wann",
+      "col_kind": "Was",
+      "col_detail": "Einzelheiten",
+      "kind": {
+        "forward_new": "Weiterleitung neu",
+        "forward_gone": "Weiterleitung weg",
+        "listen_new": "lauscht neu",
+        "listen_gone": "lauscht nicht mehr"
+      }
     }
   },
   "sonar64": {

@@ -1,6 +1,6 @@
 # Node64 – Modul Exposure-Check (Planung)
 
-Stand 2026-11-09, überarbeitet (zwei Spuren). Phase E1 (Spur 1) ist umgesetzt (Modul `exposure` 0.1.0, Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e1.md`); E2 (UPnP-Indiz, Zusammenführung, Einordnung; Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e2.md`) ist umgesetzt (0.2.0); E3 bis E6 stehen noch aus.
+Stand 2026-11-09, überarbeitet (zwei Spuren). Phase E1 (Spur 1) ist umgesetzt (Modul `exposure` 0.1.0, Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e1.md`); E2 (UPnP-Indiz, Zusammenführung, Einordnung; Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e2.md`) ist umgesetzt (0.2.0); E3 (Verlauf, Meldungen, Karte, Metriken, Export; Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e3.md`) ist umgesetzt (0.3.0); E4 bis E6 stehen noch aus.
 Issue: Scharxi/node64 #23.
 
 Was als **Annahme** markiert ist, hat der Verfasser entschieden, nicht Lucas; es ist leicht änderbar.
@@ -139,12 +139,13 @@ Migrationsbereich `exposure`, Tabellen `exposure_*`:
 - `exposure_probers`: `id`, `kind` (upnp/node/ipv64), `name`, `endpoint`, `secret` (verschlüsselt), `enabled`.
 - `exposure_expected`: `proto`, `port`, `address` (leer = alle), `note`.
 - Einstellungen in `settings`: `exposure.interval`, `exposure.ports`, `exposure.scan_subnets` (je Subnetz aus IPAM),
-  `exposure.notify_new`, `exposure.notify_unexpected`, `exposure.keep_days` (Standard 90).
+  `exposure.notify_new`, `exposure.notify_unexpected`, `exposure.notify_listen`, `exposure.keep_days` (Standard 90).
+  Umgesetzt in E3 zusätzlich: Tabelle `exposure_events` (Verlauf, Spalte `notified`: 0 offen, 1 ausgewertet, 2 gemeldet).
 
 ## Meldungen
 
-Neue Arten (Annahme): `exposure_new` (neuer erreichbarer/wahrscheinlicher Port) und `exposure_unexpected`
-(erreichbar ohne Erwartung), gebündelt je Lauf. Standard **an** für „unerwartet“, **aus** für „neu und erwartet“.
+Neue Arten: `exposure_new` (neue erwartete Weiterleitung), `exposure_unexpected` (erreichbar ohne Erwartung) und
+`exposure_listen` (neuer lauschender Port), gebündelt je Lauf, dieselbe Änderung höchstens einmal je 24 Stunden. Standard **an** für „unerwartet“, **aus** für „neu und erwartet“.
 Reine „lauscht“-Änderungen im LAN melden nur auf Wunsch.
 
 ## Datenschutz und Missbrauch

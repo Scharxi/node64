@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -466,5 +467,108 @@ func TestExposureReachShowsRouterAddress(t *testing.T) {
 	_ = m.RunNow(context.Background())
 	if _, body := a.get(t, "/exposure"); !strings.Contains(body, "Mehrere Router") {
 		t.Fatal("several answering routers must be pointed out")
+	}
+}
+
+// ---- E3: Verlauf ----
+
+func TestExposureHistoryRender(t *testing.T) {
+	f := newFakeRouterWeb(t, fakeMap{80, "TCP", 8080, "192.168.1.2", "Web"}, fakeMap{22, "TCP", 22, "192.168.1.60", "SSH"})
+	a, m := newUPnPApp(t, f, []string{f.srv.URL + "/desc.xml"})
+	ctx := context.Background()
+	_ = m.RunNow(ctx)
+	f.setMaps(fakeMap{80, "TCP", 8080, "192.168.1.2", "Web"})
+	_ = m.RunNow(ctx)
+	_, body := a.get(t, "/exposure")
+	if !strings.Contains(body, `data-event="forward_new"`) || !strings.Contains(body, `data-event="forward_gone"`) || !strings.Contains(body, "192.168.1.60:22") {
+		t.Fatal("the history must list the new and the gone forward")
+	}
+}
+
+func TestExposureHistoryEmpty(t *testing.T) {
+	a, _ := newExposureApp(t, testSockets, true, nil, nil)
+	_, body := a.get(t, "/exposure")
+	if strings.Contains(body, `data-event=`) || !strings.Contains(body, "Noch keine Änderungen") {
+		t.Fatal("an empty history says so")
+	}
+}
+
+// Dienstnamen der Node sind fremder Text (Zweck eines Moduls): im Verlauf wird escaped.
+func TestExposureHistoryEscapes(t *testing.T) {
+	var socks atomic.Value
+	socks.Store([]netstat.Listener{{Proto: "tcp", Addr: netip.MustParseAddr("::"), Port: 8080}})
+	a, m := newExposureApp(t, testSockets, true, []ports.Claim{{Owner: "web", Purpose: "<script>x</script>", Proto: ports.TCP, Port: 9000, Active: true}}, func(m *exposure.Module) {
+		m.SetListeners(func() ([]netstat.Listener, bool) { return socks.Load().([]netstat.Listener), true })
+	})
+	socks.Store([]netstat.Listener{{Proto: "tcp", Addr: netip.MustParseAddr("::"), Port: 8080}, {Proto: "tcp", Addr: netip.MustParseAddr("::"), Port: 9000}})
+	if err := m.RunNow(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, body := a.get(t, "/exposure")
+	if !strings.Contains(body, `data-event="listen_new"`) || strings.Contains(body, "<script>x</script>") || !strings.Contains(body, "&lt;script&gt;x&lt;/script&gt;") {
+		t.Fatal("a new listening port shows in the history, escaped")
+	}
+}
+
+func TestExposureKeepDaysPost(t *testing.T) {
+	a, m := newExposureApp(t, testSockets, true, nil, nil)
+	ctx := context.Background()
+	csrf := exposureCSRF(t, a)
+	a.post(t, "/exposure/settings", url.Values{"_csrf": {csrf}, "interval": {"24"}, "keep_days": {"365"}})
+	if got := m.LoadSettings(ctx); got.KeepDays != 365 {
+		t.Fatalf("saved: %+v", got)
+	}
+	a.post(t, "/exposure/settings", url.Values{"_csrf": {csrf}, "interval": {"24"}, "keep_days": {"7"}})
+	if got := m.LoadSettings(ctx); got.KeepDays != 365 {
+		t.Fatalf("an invalid value changes nothing: %+v", got)
+	}
+	if _, body := a.get(t, "/exposure"); !strings.Contains(body, "Ungültige Aufbewahrung") {
+		t.Fatal("error flash missing")
+	}
+	a.post(t, "/exposure/settings", url.Values{"_csrf": {csrf}, "interval": {"24"}}) // Feld fehlt: Wert bleibt
+	if got := m.LoadSettings(ctx); got.KeepDays != 365 {
+		t.Fatalf("a form without the field keeps the value: %+v", got)
+	}
+}
+
+func TestExposureNotifySettingsPost(t *testing.T) {
+	a, m := newExposureApp(t, testSockets, true, nil, nil)
+	ctx := context.Background()
+	csrf := exposureCSRF(t, a)
+	if got := m.LoadSettings(ctx); !got.NotifyUnexpected || got.NotifyNew || got.NotifyListen {
+		t.Fatalf("defaults: %+v", got)
+	}
+	a.post(t, "/exposure/settings", url.Values{"_csrf": {csrf}, "interval": {"24"}, "notify_new": {"on"}, "notify_listen": {"on"}})
+	if got := m.LoadSettings(ctx); got.NotifyUnexpected || !got.NotifyNew || !got.NotifyListen {
+		t.Fatalf("an unchecked box means off: %+v", got)
+	}
+	a.post(t, "/exposure/settings", url.Values{"_csrf": {csrf}, "interval": {"24"}, "notify_unexpected": {"on"}})
+	if got := m.LoadSettings(ctx); !got.NotifyUnexpected || got.NotifyNew || got.NotifyListen {
+		t.Fatalf("as in the form: %+v", got)
+	}
+}
+
+// Das Formular muss jedes Feld der Einstellungen tragen, sonst setzt jedes Speichern es zurueck.
+func TestExposureSettingsFormCarriesAllFields(t *testing.T) {
+	a, _ := newExposureApp(t, testSockets, true, nil, nil)
+	_, body := a.get(t, "/exposure")
+	fields := map[string]string{"IntervalHours": "interval", "Ports": "ports", "Subnets": "subnet", "UPnP": "upnp", "UPnPURL": "upnp_url", "KeepDays": "keep_days",
+		"NotifyUnexpected": "notify_unexpected", "NotifyNew": "notify_new", "NotifyListen": "notify_listen"}
+	typ := reflect.TypeOf(exposure.Settings{})
+	if typ.NumField() != len(fields) {
+		t.Fatalf("Settings has %d fields, the test knows %d: add the new field to the form and to this list", typ.NumField(), len(fields))
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		name, ok := fields[typ.Field(i).Name]
+		if !ok {
+			t.Fatalf("unknown field %s", typ.Field(i).Name)
+		}
+		// "subnet" kommt nur mit IPAM-Subnetzen auf die Seite, die uebrigen immer
+		if name != "subnet" && !strings.Contains(body, `name="`+name+`"`) {
+			t.Fatalf("the form has no input %q", name)
+		}
+	}
+	if !regexp.MustCompile(`name="notify_unexpected"[^>]*checked`).MatchString(body) {
+		t.Fatal("the unexpected-forward alert is checked by default")
 	}
 }

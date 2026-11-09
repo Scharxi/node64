@@ -382,3 +382,31 @@ func TestStartRunSecondIsBusy(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTickCleansUpEventsHourly(t *testing.T) {
+	m := newTestModule(t)
+	ctx := context.Background()
+	m.SetListeners(func() ([]netstat.Listener, bool) { return nil, true })
+	if err := m.saveRaw(ctx, Settings{IntervalHours: 24, KeepDays: 30}); err != nil {
+		t.Fatal(err)
+	}
+	var rows []External // wachsende Liste: nur neue Weiterleitungen, keine weggefallenen
+	old := func(port int) {
+		rows = append(rows, External{Proto: "tcp", Port: port, InternalAddr: "192.168.1.5", InternalPort: 80})
+		_ = m.recordExternal(ctx, t0.Add(-100*24*time.Hour), EvidenceUPnP, rows)
+	}
+	old(80)
+	m.tick(ctx, t0)
+	if ev := eventsOf(t, m); len(ev) != 0 {
+		t.Fatalf("the first tick cleans up: %+v", ev)
+	}
+	old(81)
+	m.tick(ctx, t0.Add(30*time.Minute))
+	if ev := eventsOf(t, m); len(ev) != 1 {
+		t.Fatalf("within the hour nothing is cleaned up again: %+v", ev)
+	}
+	m.tick(ctx, t0.Add(61*time.Minute))
+	if ev := eventsOf(t, m); len(ev) != 0 {
+		t.Fatalf("after the hour it is cleaned up: %+v", ev)
+	}
+}

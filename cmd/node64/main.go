@@ -276,6 +276,7 @@ func run() error {
 		}
 		return out, nil
 	})
+	exposureModule.SetNotifier(dispatcher.Dispatch) // neue Weiterleitung/lauschender Port (gebuendelt je Lauf, dieselbe Aenderung hoechstens einmal je 24 Stunden)
 	modules.Register(exposureModule)
 	// Reverse-Proxy ueber den gemeinsamen Eingang
 	cdnModule := cdn64.New(st, logger.Slog(), edgeSrv, certMgr, Version)

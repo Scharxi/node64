@@ -3125,7 +3125,10 @@
       "docker_threshold_ok": "🟢 Docker: {name} below threshold again",
       "docker_restarted": "🔄 Docker: {name} restarted",
       "update_ok": "✅ Node64 updated to {name}",
-      "update_failed": "🔴 Node64 update to {name} failed"
+      "update_failed": "🔴 Node64 update to {name} failed",
+      "exposure_unexpected": "🚨 Exposure check: unexpectedly reachable: {name}",
+      "exposure_new": "🆕 Exposure check: new forward: {name}",
+      "exposure_listen": "🔎 Exposure check: new listening port: {name}"
     },
     "body": {
       "quota_used": "Used: {used} of {limit} online checks today",
@@ -3150,7 +3153,10 @@
       "dyndns_limit_reached": "ipv64: daily update limit reached.",
       "cluster_suspended": "Suspended: {reason}",
       "update_ok": "Node64 runs stably with version {version} (before {from}).",
-      "update_failed": "The new version {version} did not run stably. Node64 runs {back} again, the database from before the update was restored."
+      "update_failed": "The new version {version} did not run stably. Node64 runs {back} again, the database from before the update was restored.",
+      "exposure_unexpected": "{count} new forward(s) on the router that you have not marked as expected: {list}",
+      "exposure_new": "{count} new expected forward(s) on the router: {list}",
+      "exposure_listen": "{count} new listening port(s): {list}"
     },
     "reason": {
       "traffic": "traffic quota used up",
@@ -5516,7 +5522,15 @@
       "subnets": "Subnets to scan",
       "subnets_hint": "Known devices only (seen in the last 24 hours) and private networks only. The scan opens short connections to the ports.",
       "scan": "Check now",
-      "not_private": "cannot be scanned: not a private network"
+      "not_private": "cannot be scanned: not a private network",
+      "keep_days": "Keep history",
+      "keep_days_n": "{n} days",
+      "keep_unlimited": "unlimited",
+      "notify": "Notifications",
+      "notify_unexpected": "Notify on an unexpected port forward",
+      "notify_new": "Notify on a new expected port forward",
+      "notify_listen": "Notify on a new listening port",
+      "notify_hint": "Notifications use your configured channels. The same change is reported at most once every 24 hours."
     },
     "err": {
       "ports": "Invalid ports. Allowed are numbers from 1 to 65535 and ranges like 8000-8010, separated by commas.",
@@ -5527,7 +5541,8 @@
       "not_private": "Only private networks can be scanned.",
       "invalid_expected": "Invalid port. Allowed are 1 to 65535 with tcp or udp, the note at most 253 characters.",
       "unsafe_url": "Invalid router address. Allowed is http or https with an IP address on a private network.",
-      "not_found": "Not found."
+      "not_found": "Not found.",
+      "keep_days": "Invalid retention."
     },
     "flash": {
       "started": "Check started."
@@ -5577,6 +5592,26 @@
       "hint": "Off by default. The node looks for the router on the LAN (multicast) and reads its active port forwards, at most once an hour.",
       "url": "Address of the router (optional)",
       "url_hint": "Description of the router, e.g. http://192.168.1.1:5000/rootDesc.xml. Private IP addresses only; empty = search."
+    },
+    "card": {
+      "node": "Open ports (node)",
+      "hosts": "Devices with open ports",
+      "forwards": "Port forwards",
+      "unexpected": "of them unexpected",
+      "changes": "Changes (24 h)"
+    },
+    "history": {
+      "title": "History",
+      "empty": "No changes yet.",
+      "col_time": "When",
+      "col_kind": "What",
+      "col_detail": "Details",
+      "kind": {
+        "forward_new": "forward new",
+        "forward_gone": "forward gone",
+        "listen_new": "now listening",
+        "listen_gone": "no longer listening"
+      }
     }
   },
   "sonar64": {

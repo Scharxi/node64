@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ipv64net/node64/internal/module"
 	"github.com/ipv64net/node64/internal/netstat"
+	"github.com/ipv64net/node64/internal/notify"
 	"github.com/ipv64net/node64/internal/ports"
 	"github.com/ipv64net/node64/internal/store"
 )
@@ -31,7 +33,7 @@ var changelogEN string
 // Name ist der technische Schluessel des Moduls.
 const Name = "exposure"
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 // Module implementiert module.Module.
 type Module struct {
@@ -49,6 +51,10 @@ type Module struct {
 	gateways   func(ctx context.Context) ([]string, error) // Router suchen (SSDP); Tests ersetzen es
 	upnpOpts   UPnPOptions                                 // Grenzen der UPnP-Abfrage
 	localAddrs func() []netip.Addr                         // eigene Adressen der Node (Ziel einer Weiterleitung auf die Node)
+
+	notifyMu sync.Mutex
+	notifier func(notify.Alert) // Meldungen (nil = keine)
+	alertSeq atomic.Uint64      // macht die EventID einer Meldung eindeutig
 
 	runMu sync.Mutex // ein Lauf (Scan) gleichzeitig
 	st    runState

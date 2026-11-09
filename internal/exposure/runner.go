@@ -16,6 +16,9 @@ var (
 	newScanOptions = DefaultScanOptions
 )
 
+// cleanupEvery: so oft raeumt die Schleife den Verlauf auf (Paketvariable, Tests ersetzen sie).
+var cleanupEvery = time.Hour
+
 // ErrBusy: es laeuft schon ein Lauf.
 var ErrBusy = errors.New("exposure: a run is already in progress")
 
@@ -53,6 +56,8 @@ type runState struct {
 	upnpTruncated bool
 	upnpLocation  string
 	upnpGateways  int
+
+	lastCleanup time.Time // letztes Aufraeumen des Verlaufs
 }
 
 // Status liefert den Zustand der Laeufe.
@@ -213,7 +218,16 @@ func (m *Module) runAll(ctx context.Context, now time.Time) error {
 		m.setErr(err)
 		return err
 	}
-	return m.scanSubnets(ctx, now)
+	err := m.scanSubnets(ctx, now)
+	m.sendChanges(ctx)
+	return err
+}
+
+// sendChanges meldet die Aenderungen des Laufs; ein Fehler dabei bricht den Lauf nicht ab.
+func (m *Module) sendChanges(ctx context.Context) {
+	if err := m.notifyChanges(ctx); err != nil && ctx.Err() == nil {
+		m.log.Warn("exposure: notifying failed", "err", err)
+	}
 }
 
 // RunNow liest die Node und scannt sofort und wartet auf das Ende; ErrBusy, wenn schon ein Lauf aktiv ist.
@@ -259,16 +273,37 @@ func (m *Module) StartRun() error {
 	return m.launch(func(ctx context.Context) error { return m.runAll(ctx, time.Now().UTC()) })
 }
 
+// maybeCleanup raeumt den Verlauf hoechstens einmal je cleanupEvery auf.
+func (m *Module) maybeCleanup(ctx context.Context, now time.Time) {
+	m.st.mu.Lock()
+	due := m.st.lastCleanup.IsZero() || now.Sub(m.st.lastCleanup) >= cleanupEvery
+	if due {
+		m.st.lastCleanup = now
+	}
+	m.st.mu.Unlock()
+	if !due {
+		return
+	}
+	if n, err := m.CleanupEvents(ctx, now); err != nil {
+		m.log.Warn("exposure: cleaning up the history failed", "err", err)
+	} else if n > 0 {
+		m.log.Info("exposure: history cleaned up", "removed", n)
+	}
+}
+
 // tick: die Node lesen und, wenn faellig, im Hintergrund scannen (der Scan haelt das Lesen der Node nicht auf).
 func (m *Module) tick(ctx context.Context, now time.Time) {
 	if err := m.snapshotSelf(ctx, now); err != nil {
 		m.log.Warn("exposure: reading the node failed", "err", err)
 	}
+	m.maybeCleanup(ctx, now)
+	m.sendChanges(ctx)
 	scan, upnp := m.scanDue(ctx, now), m.upnpDue(ctx, now)
 	if !scan && !upnp {
 		return
 	}
 	err := m.launch(func(ctx context.Context) error {
+		defer m.sendChanges(ctx)
 		if upnp {
 			if err := m.readUPnP(ctx, now); err != nil {
 				return err

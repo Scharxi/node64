@@ -2,7 +2,9 @@ package exposure
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -60,6 +62,16 @@ func (m *Module) recordExternalMode(ctx context.Context, now time.Time, evidence
 	seen := map[string]bool{}
 	for _, r := range rows {
 		proto := strings.ToLower(r.Proto)
+		var prev string
+		perr := tx.QueryRowContext(ctx, `SELECT state FROM exposure_external WHERE proto = ? AND port = ? AND evidence = ?`, proto, r.Port, evidence).Scan(&prev)
+		if perr != nil && perr != sql.ErrNoRows {
+			return perr
+		}
+		if perr == sql.ErrNoRows || prev == "gone" {
+			if err := addEvent(ctx, tx, now, EventForwardNew, proto, r.Port, r.InternalAddr, r.InternalAddr+":"+strconv.Itoa(r.InternalPort)); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO exposure_external (`+externalCols+`) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
 			ON CONFLICT(proto, port, evidence) DO UPDATE SET state = 'open', internal_addr = excluded.internal_addr,
 			internal_port = excluded.internal_port, description = excluded.description, last_seen = excluded.last_seen`,
@@ -71,14 +83,14 @@ func (m *Module) recordExternalMode(ctx context.Context, now time.Time, evidence
 	if !markGone {
 		return tx.Commit()
 	}
-	open, err := tx.QueryContext(ctx, `SELECT proto, port FROM exposure_external WHERE evidence = ? AND state = 'open'`, evidence)
+	open, err := tx.QueryContext(ctx, `SELECT proto, port, internal_addr, internal_port FROM exposure_external WHERE evidence = ? AND state = 'open'`, evidence)
 	if err != nil {
 		return err
 	}
 	var gone []External
 	for open.Next() {
 		var e External
-		if err := open.Scan(&e.Proto, &e.Port); err != nil {
+		if err := open.Scan(&e.Proto, &e.Port, &e.InternalAddr, &e.InternalPort); err != nil {
 			open.Close()
 			return err
 		}
@@ -89,6 +101,9 @@ func (m *Module) recordExternalMode(ctx context.Context, now time.Time, evidence
 	open.Close()
 	for _, e := range gone {
 		if _, err := tx.ExecContext(ctx, `UPDATE exposure_external SET state = 'gone' WHERE proto = ? AND port = ? AND evidence = ?`, e.Proto, e.Port, evidence); err != nil {
+			return err
+		}
+		if err := addEvent(ctx, tx, now, EventForwardGone, e.Proto, e.Port, e.InternalAddr, e.InternalAddr+":"+strconv.Itoa(e.InternalPort)); err != nil {
 			return err
 		}
 	}
@@ -147,13 +162,19 @@ func cleanNote(s string) (string, error) {
 	return s, nil
 }
 
-// AddExpected traegt einen erwarteten Port ein (ein vorhandener wird aktualisiert).
-func (m *Module) AddExpected(ctx context.Context, proto string, port int, note string) error {
+// checkExpected prueft einen erwarteten Port und liefert Protokoll und Notiz in Normalform.
+func checkExpected(proto string, port int, note string) (string, string, error) {
 	proto = strings.ToLower(strings.TrimSpace(proto))
 	if (proto != "tcp" && proto != "udp") || port < 1 || port > 65535 {
-		return ErrInvalidExpected
+		return "", "", ErrInvalidExpected
 	}
 	note, err := cleanNote(note)
+	return proto, note, err
+}
+
+// AddExpected traegt einen erwarteten Port ein (ein vorhandener wird aktualisiert).
+func (m *Module) AddExpected(ctx context.Context, proto string, port int, note string) error {
+	proto, note, err := checkExpected(proto, port, note)
 	if err != nil {
 		return err
 	}

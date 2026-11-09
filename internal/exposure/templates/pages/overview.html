@@ -135,6 +135,28 @@
 	{{end}}
 </div>
 
+<div class="card mb-3">
+	<div class="card-header"><i class="bi bi-clock-history text-primary"></i> {{.T "exposure.history.title"}}</div>
+	{{if $d.History}}
+	<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0 table-cards small">
+		<thead><tr><th class="ps-3">{{.T "exposure.history.col_time"}}</th><th>{{.T "exposure.history.col_kind"}}</th><th>{{.T "exposure.col.port"}}</th><th>{{.T "exposure.col.address"}}</th><th>{{.T "exposure.history.col_detail"}}</th></tr></thead>
+		<tbody>
+		{{range $d.History}}
+		<tr data-event="{{.Kind}}">
+			<td class="ps-3 text-nowrap"><span title="{{$.Time .At}}">{{$.Ago .At}}</span></td>
+			<td><span class="badge {{if or (eq .Kind "forward_new") (eq .Kind "listen_new")}}text-bg-warning{{else}}text-bg-secondary{{end}}">{{$.T (print "exposure.history.kind." .Kind)}}</span></td>
+			<td class="font-monospace">{{.Port}}/{{.Proto}}</td>
+			<td>{{if eq .Address "self"}}{{$.T "exposure.reach.self"}}{{else}}<span class="font-monospace">{{.Address}}</span>{{end}}</td>
+			<td class="text-break">{{.Detail}}</td>
+		</tr>
+		{{end}}
+		</tbody>
+	</table></div>
+	{{else}}
+	<div class="card-body small text-body-secondary">{{.T "exposure.history.empty"}}</div>
+	{{end}}
+</div>
+
 <div class="card">
 	<div class="card-header"><i class="bi bi-sliders text-info"></i> {{.T "exposure.settings.title"}}</div>
 	<div class="card-body small">
@@ -144,6 +166,12 @@
 				<label class="form-label mb-1" for="ex-interval">{{.T "exposure.settings.interval"}}</label>
 				<select class="form-select form-select-sm" id="ex-interval" name="interval">
 					{{range $d.Intervals}}<option value="{{.}}"{{if eq . $d.Settings.IntervalHours}} selected{{end}}>{{$.T "exposure.settings.hours" "n" .}}</option>{{end}}
+				</select>
+			</div>
+			<div class="col-md-4">
+				<label class="form-label mb-1" for="ex-keep">{{.T "exposure.settings.keep_days"}}</label>
+				<select class="form-select form-select-sm" id="ex-keep" name="keep_days">
+					{{range $d.KeepDays}}<option value="{{.}}"{{if eq . $d.Settings.KeepDays}} selected{{end}}>{{if eq . 0}}{{$.T "exposure.settings.keep_unlimited"}}{{else}}{{$.T "exposure.settings.keep_days_n" "n" .}}{{end}}</option>{{end}}
 				</select>
 			</div>
 			<div class="col-md-8">
@@ -168,6 +196,13 @@
 				<label class="form-label mb-1" for="ex-upnp-url">{{.T "exposure.upnp.url"}}</label>
 				<input class="form-control form-control-sm font-monospace" id="ex-upnp-url" name="upnp_url" value="{{$d.Settings.UPnPURL}}" placeholder="http://192.168.1.1:5000/rootDesc.xml">
 				<div class="form-text">{{.T "exposure.upnp.url_hint"}}</div>
+			</div>
+			<div class="col-12">
+				<div class="form-label mb-1">{{.T "exposure.settings.notify"}}</div>
+				<div class="form-check"><input class="form-check-input" type="checkbox" name="notify_unexpected" id="ex-nu"{{if $d.Settings.NotifyUnexpected}} checked{{end}}><label class="form-check-label" for="ex-nu">{{.T "exposure.settings.notify_unexpected"}}</label></div>
+				<div class="form-check"><input class="form-check-input" type="checkbox" name="notify_new" id="ex-nn"{{if $d.Settings.NotifyNew}} checked{{end}}><label class="form-check-label" for="ex-nn">{{.T "exposure.settings.notify_new"}}</label></div>
+				<div class="form-check"><input class="form-check-input" type="checkbox" name="notify_listen" id="ex-nl"{{if $d.Settings.NotifyListen}} checked{{end}}><label class="form-check-label" for="ex-nl">{{.T "exposure.settings.notify_listen"}}</label></div>
+				<div class="form-text">{{.T "exposure.settings.notify_hint"}}</div>
 			</div>
 			<div class="col-12"><button class="btn btn-primary btn-sm" type="submit">{{.T "common.save"}}</button></div>
 		</form>

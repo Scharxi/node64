@@ -24,6 +24,7 @@ func (m *Module) apiRoutes(mux *http.ServeMux, g module.Guards) {
 	mux.Handle("PUT /api/exposure/settings", api(m.apiSettingsPut))
 	mux.Handle("POST /api/exposure/scan", api(m.apiScan))
 	mux.Handle("GET /api/exposure/overview", api(m.apiOverview))
+	mux.Handle("GET /api/exposure/history", api(m.apiHistory))
 	mux.Handle("GET /api/exposure/expected", api(m.apiExpectedList))
 	mux.Handle("POST /api/exposure/expected", api(m.apiExpectedAdd))
 	mux.Handle("DELETE /api/exposure/expected/{proto}/{port}", api(m.apiExpectedDelete))
@@ -55,7 +56,7 @@ func (m *Module) apiErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrNotFound):
 		writeErr(w, http.StatusNotFound, "not found")
 	case errors.Is(err, ErrInvalidPorts), errors.Is(err, ErrTooManyPorts), errors.Is(err, ErrInvalidInterval), errors.Is(err, ErrUnknownSubnet),
-		errors.Is(err, ErrSubnetNotPrivate), errors.Is(err, ErrInvalidExpected), errors.Is(err, ErrUnsafeURL):
+		errors.Is(err, ErrSubnetNotPrivate), errors.Is(err, ErrInvalidExpected), errors.Is(err, ErrUnsafeURL), errors.Is(err, ErrInvalidKeepDays):
 		writeErr(w, http.StatusUnprocessableEntity, err.Error())
 	default:
 		m.log.Error("exposure api", "err", err)
@@ -112,10 +113,16 @@ type settingsJSON struct {
 	Subnets       []int64 `json:"subnets"`
 	UPnP          bool    `json:"upnp"`
 	UPnPURL       string  `json:"upnp_url"`
+	KeepDays      int     `json:"keep_days"`
+
+	NotifyUnexpected bool `json:"notify_unexpected"`
+	NotifyNew        bool `json:"notify_new"`
+	NotifyListen     bool `json:"notify_listen"`
 }
 
 func settingsOut(s Settings) settingsJSON {
-	out := settingsJSON{IntervalHours: s.IntervalHours, Ports: s.Ports, Subnets: s.Subnets, UPnP: s.UPnP, UPnPURL: s.UPnPURL}
+	out := settingsJSON{IntervalHours: s.IntervalHours, Ports: s.Ports, Subnets: s.Subnets, UPnP: s.UPnP, UPnPURL: s.UPnPURL, KeepDays: s.KeepDays,
+		NotifyUnexpected: s.NotifyUnexpected, NotifyNew: s.NotifyNew, NotifyListen: s.NotifyListen}
 	if out.Ports == nil {
 		out.Ports = []int{}
 	}
@@ -129,20 +136,74 @@ func (m *Module) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, settingsOut(m.LoadSettings(r.Context())))
 }
 
-// apiSettingsPut ersetzt alle Einstellungen (fehlende Felder gelten als leer).
+// apiSettingsPut ersetzt alle Einstellungen (fehlende Felder gelten als leer bzw. aus); keep_days und die Schalter der
+// Meldungen sind die Ausnahme: fehlt ein solches Feld, bleibt der bisherige Wert (ein aelterer Client schaltet so nichts aus).
 func (m *Module) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
-	var in settingsJSON
+	var in struct {
+		settingsJSON
+		KeepDays         *int  `json:"keep_days"`
+		NotifyUnexpected *bool `json:"notify_unexpected"`
+		NotifyNew        *bool `json:"notify_new"`
+		NotifyListen     *bool `json:"notify_listen"`
+	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBody)).Decode(&in); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json body")
 		return
 	}
-	s := Settings{IntervalHours: in.IntervalHours, Ports: in.Ports, Subnets: in.Subnets, UPnP: in.UPnP, UPnPURL: in.UPnPURL}
+	cur := m.LoadSettings(r.Context())
+	s := Settings{IntervalHours: in.IntervalHours, Ports: in.Ports, Subnets: in.Subnets, UPnP: in.UPnP, UPnPURL: in.UPnPURL, KeepDays: cur.KeepDays,
+		NotifyUnexpected: cur.NotifyUnexpected, NotifyNew: cur.NotifyNew, NotifyListen: cur.NotifyListen}
+	if in.KeepDays != nil {
+		s.KeepDays = *in.KeepDays
+	}
+	if in.NotifyUnexpected != nil {
+		s.NotifyUnexpected = *in.NotifyUnexpected
+	}
+	if in.NotifyNew != nil {
+		s.NotifyNew = *in.NotifyNew
+	}
+	if in.NotifyListen != nil {
+		s.NotifyListen = *in.NotifyListen
+	}
 	if err := m.SaveSettings(r.Context(), s); err != nil {
 		m.apiErr(w, err)
 		return
 	}
 	m.audit(r, "exposure.settings", "settings", "api")
 	writeJSON(w, http.StatusOK, settingsOut(m.LoadSettings(r.Context())))
+}
+
+type eventJSON struct {
+	ID      int64     `json:"id"`
+	At      time.Time `json:"at"`
+	Kind    string    `json:"kind"`
+	Proto   string    `json:"proto"`
+	Port    int       `json:"port"`
+	Address string    `json:"address"`
+	Detail  string    `json:"detail"`
+}
+
+// apiHistory liefert den Verlauf, neueste zuerst (limit 1 bis 500, Standard 50).
+func (m *Module) apiHistory(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	if q := r.URL.Query().Get("limit"); q != "" {
+		n, err := strconv.Atoi(q)
+		if err != nil || n < 1 || n > 500 {
+			writeErr(w, http.StatusUnprocessableEntity, "limit must be a number from 1 to 500")
+			return
+		}
+		limit = n
+	}
+	list, err := m.Events(r.Context(), limit)
+	if err != nil {
+		m.apiErr(w, err)
+		return
+	}
+	out := make([]eventJSON, 0, len(list))
+	for _, e := range list {
+		out = append(out, eventJSON{ID: e.ID, At: e.At.UTC(), Kind: e.Kind, Proto: e.Proto, Port: e.Port, Address: e.Address, Detail: e.Detail})
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // apiScan startet einen Lauf im Hintergrund; laeuft schon einer, kommt 409.

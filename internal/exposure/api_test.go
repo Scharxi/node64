@@ -278,3 +278,71 @@ func TestAPIStatusUPnP(t *testing.T) {
 		t.Fatalf("status: %d %s", code, body)
 	}
 }
+
+// ---- E3: Verlauf ----
+
+func TestAPIHistory(t *testing.T) {
+	fastScan(t)
+	m, f, srv := upnpAPI(t, fakeEntry{80, "TCP", 8080, "192.168.1.5", "1", "Web"}, fakeEntry{22, "TCP", 22, "192.168.1.60", "1", "SSH"})
+	ctx := context.Background()
+	_ = m.RunNow(ctx)
+	f.entries = f.entries[:1]
+	_ = m.RunNow(ctx) // 22 faellt weg
+	code, body := call(t, "GET", srv.URL+"/api/exposure/history", nil)
+	if code != 200 || !strings.Contains(body, `"kind":"forward_new"`) || !strings.Contains(body, `"kind":"forward_gone"`) || !strings.Contains(body, `"detail":"192.168.1.60:22"`) || !strings.Contains(body, `"at":"`) {
+		t.Fatalf("history: %d %s", code, body)
+	}
+	if i, j := strings.Index(body, `"forward_gone"`), strings.Index(body, `"forward_new"`); i < 0 || j < 0 || i > j {
+		t.Fatalf("newest first (the gone event comes before the new ones): %s", body)
+	}
+	if code, body := call(t, "GET", srv.URL+"/api/exposure/history?limit=1", nil); code != 200 || strings.Count(body, `"kind"`) != 1 {
+		t.Fatalf("limit 1: %d %s", code, body)
+	}
+	for _, bad := range []string{"0", "abc", "501", "-1"} {
+		if code, _ := call(t, "GET", srv.URL+"/api/exposure/history?limit="+bad, nil); code != 422 {
+			t.Errorf("limit=%s: %d, want 422", bad, code)
+		}
+	}
+}
+
+func TestAPISettingsKeepDays(t *testing.T) {
+	m := apiModule(t)
+	srv := apiServer(t, m)
+	if code, body := call(t, "GET", srv.URL+"/api/exposure/settings", nil); code != 200 || !strings.Contains(body, `"keep_days":90`) {
+		t.Fatalf("default: %d %s", code, body)
+	}
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 24, "keep_days": 365}); code != 200 || !strings.Contains(body, `"keep_days":365`) {
+		t.Fatalf("put: %d %s", code, body)
+	}
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 24, "keep_days": 7}); code != 422 || !strings.Contains(body, `"error"`) {
+		t.Fatalf("invalid: %d %s", code, body)
+	}
+	// ohne das Feld bleibt der Wert
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 6}); code != 200 || !strings.Contains(body, `"keep_days":365`) {
+		t.Fatalf("a missing keep_days keeps the value: %d %s", code, body)
+	}
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 6, "keep_days": 0}); code != 200 || !strings.Contains(body, `"keep_days":0`) {
+		t.Fatalf("an explicit 0 means unlimited: %d %s", code, body)
+	}
+}
+
+func TestAPISettingsNotify(t *testing.T) {
+	m := apiModule(t)
+	srv := apiServer(t, m)
+	if code, body := call(t, "GET", srv.URL+"/api/exposure/settings", nil); code != 200 ||
+		!strings.Contains(body, `"notify_unexpected":true`) || !strings.Contains(body, `"notify_new":false`) || !strings.Contains(body, `"notify_listen":false`) {
+		t.Fatalf("defaults: %d %s", code, body)
+	}
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 24, "notify_unexpected": false, "notify_new": true, "notify_listen": true}); code != 200 ||
+		!strings.Contains(body, `"notify_unexpected":false`) || !strings.Contains(body, `"notify_new":true`) || !strings.Contains(body, `"notify_listen":true`) {
+		t.Fatalf("put: %d %s", code, body)
+	}
+	// ohne die Felder bleiben die Schalter, wie sie waren (ein aelterer Client schaltet Meldungen nicht aus)
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 6}); code != 200 ||
+		!strings.Contains(body, `"notify_unexpected":false`) || !strings.Contains(body, `"notify_new":true`) || !strings.Contains(body, `"notify_listen":true`) {
+		t.Fatalf("missing fields keep the switches: %d %s", code, body)
+	}
+	if code, body := call(t, "PUT", srv.URL+"/api/exposure/settings", map[string]any{"interval_hours": 6, "notify_unexpected": true}); code != 200 || !strings.Contains(body, `"notify_unexpected":true`) {
+		t.Fatalf("explicit true: %d %s", code, body)
+	}
+}

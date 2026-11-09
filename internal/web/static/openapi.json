@@ -6634,6 +6634,68 @@
             "upnp_url": {
               "type": "string",
               "description": "Beschreibung des Routers von Hand (nur IP-Adresse im privaten Netz); leer = per SSDP suchen"
+            },
+            "keep_days": {
+              "type": "integer",
+              "enum": [
+                30,
+                90,
+                365,
+                0
+              ],
+              "description": "Aufbewahrung des Verlaufs in Tagen, 0 = unbegrenzt (Standard 90). Fehlt das Feld im PUT, bleibt der Wert."
+            },
+            "notify_unexpected": {
+              "type": "boolean",
+              "description": "Meldung bei neuer unerwarteter Weiterleitung (Standard an). Fehlt das Feld im PUT, bleibt der Wert."
+            },
+            "notify_new": {
+              "type": "boolean",
+              "description": "Meldung bei neuer erwarteter Weiterleitung (Standard aus). Fehlt das Feld im PUT, bleibt der Wert."
+            },
+            "notify_listen": {
+              "type": "boolean",
+              "description": "Meldung bei neuem lauschendem Port der Node oder eines Geräts (Standard aus). Fehlt das Feld im PUT, bleibt der Wert."
+            }
+          }
+        },
+        "ExposureEvent": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "forward_new",
+                "forward_gone",
+                "listen_new",
+                "listen_gone"
+              ]
+            },
+            "proto": {
+              "type": "string",
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "port": {
+              "type": "integer"
+            },
+            "address": {
+              "type": "string",
+              "description": "bei Weiterleitungen das Ziel im LAN, bei lauschenden Ports `self` oder die Adresse des Geräts"
+            },
+            "detail": {
+              "type": "string",
+              "description": "bei Weiterleitungen `Adresse:Port` des Ziels, bei lauschenden Ports der Dienst"
             }
           }
         },
@@ -25930,7 +25992,7 @@
             "Exposure"
           ],
           "summary": "Einstellungen ersetzen (fehlende Felder gelten als leer)",
-          "description": "`interval_hours`: 1, 6, 24 oder 168. `ports`: eigene Ports zusätzlich zur Standardliste, insgesamt höchstens 100. `subnets`: IPAM-Subnetze, deren bekannte Geräte gescannt werden.",
+          "description": "`interval_hours`: 1, 6, 24 oder 168. `ports`: eigene Ports zusätzlich zur Standardliste, insgesamt höchstens 100. `subnets`: IPAM-Subnetze, deren bekannte Geräte gescannt werden. `keep_days` und die drei `notify_*`-Felder behalten ihren Wert, wenn sie fehlen.",
           "requestBody": {
             "required": true,
             "content": {
@@ -25964,6 +26026,53 @@
             },
             "422": {
               "description": "ungültiger Abstand, ungültige oder zu viele Ports, unbekanntes Subnetz",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/history": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Verlauf: neue und weggefallene Weiterleitungen und lauschende Ports",
+          "description": "Neueste zuerst. Die erste Aufnahme einer Adresse (Baseline) erzeugt keine Ereignisse. Aufbewahrung über `keep_days` der Einstellungen.",
+          "parameters": [
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500,
+                "default": 50
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ExposureEvent"
+                    }
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "limit keine Zahl von 1 bis 500",
               "content": {
                 "application/json": {
                   "schema": {

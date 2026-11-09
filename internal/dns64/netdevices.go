@@ -1,14 +1,23 @@
 package dns64
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Geraete aus DNS64 fuer andere Module (GitHub #20): Healthchecks bietet sie beim Anlegen eines Checks zur Auswahl an,
 // die Seite Gruppen verlinkt je Geraet auf "neuer Check" (nur wenn Healthchecks laeuft).
 
 // NetDevice ist ein Geraet der letzten 24 Stunden.
 type NetDevice struct {
-	Name string // Name vom Router bzw. aus der Gruppe ("" = unbekannt)
-	IP   string
+	Name     string // Name vom Router bzw. aus der Gruppe ("" = unbekannt)
+	IP       string
+	MAC      string    // aus der Nachbartabelle ("" = unbekannt)
+	LastSeen time.Time // letzte Anfrage des Geraets
+}
+
+func netDeviceOf(d deviceView) NetDevice {
+	return NetDevice{Name: d.Name, IP: d.IP, MAC: d.MAC, LastSeen: d.Last}
 }
 
 // SetHealthchecks: f meldet, ob Healthchecks laeuft (Knopf "Als Check" bei den Geraeten).
@@ -31,7 +40,7 @@ func (m *Module) NetDevices(ctx context.Context) []NetDevice {
 		if !d.Host {
 			continue
 		}
-		out = append(out, NetDevice{Name: d.Name, IP: d.IP})
+		out = append(out, netDeviceOf(d))
 	}
 	return out
 }

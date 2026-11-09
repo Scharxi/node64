@@ -15,3 +15,12 @@ func Neighbors() (map[netip.Addr]string, error) {
 	}
 	return parseNeighDump(b), nil
 }
+
+// NeighborStates wie Neighbors, aber mit dem Zustand je Eintrag (veraltet oder nicht).
+func NeighborStates() (map[netip.Addr]Neighbor, error) {
+	b, err := syscall.NetlinkRIB(syscall.RTM_GETNEIGH, syscall.AF_UNSPEC)
+	if err != nil {
+		return nil, err
+	}
+	return parseNeighEntries(b), nil
+}

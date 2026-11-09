@@ -16,14 +16,31 @@ const (
 	ndaLLAddr       = 2
 	nudIncomplete   = 0x01
 	nudFailed       = 0x20
+	nudStale        = 0x04
 	nudNoARP        = 0x40
 	afInet, afInet6 = 2, 10
 )
 
-// parseNeighDump liest eine Netlink-Antwort auf RTM_GETNEIGH (Bytes in Host-Reihenfolge) und liefert IP -> MAC.
-// Unvollstaendige, gescheiterte und NOARP-Eintraege (z. B. Loopback, Multicast) fallen weg.
+// Neighbor ist ein Eintrag der Nachbartabelle: MAC und ob der Eintrag veraltet ist (Zustand STALE, kein Beweis,
+// dass das Geraet jetzt da ist).
+type Neighbor struct {
+	MAC   string
+	Stale bool
+}
+
+// parseNeighDump liefert IP -> MAC (siehe parseNeighEntries; der Zustand fehlt hier).
 func parseNeighDump(b []byte) map[netip.Addr]string {
 	out := map[netip.Addr]string{}
+	for ip, n := range parseNeighEntries(b) {
+		out[ip] = n.MAC
+	}
+	return out
+}
+
+// parseNeighEntries liest eine Netlink-Antwort auf RTM_GETNEIGH (Bytes in Host-Reihenfolge) und liefert IP -> Eintrag.
+// Unvollstaendige, gescheiterte und NOARP-Eintraege (z. B. Loopback, Multicast) fallen weg.
+func parseNeighEntries(b []byte) map[netip.Addr]Neighbor {
+	out := map[netip.Addr]Neighbor{}
 	for len(b) >= nlmsgHdrLen {
 		l := int(binary.NativeEndian.Uint32(b[0:4]))
 		typ := binary.NativeEndian.Uint16(b[4:6])
@@ -66,7 +83,7 @@ func parseNeighDump(b []byte) map[netip.Addr]string {
 			attrs = attrs[min(align4(al), len(attrs)):]
 		}
 		if ip.IsValid() && mac != nil && !allZero(mac) {
-			out[ip] = mac.String()
+			out[ip] = Neighbor{MAC: mac.String(), Stale: state&nudStale != 0}
 		}
 	}
 	return out

@@ -114,3 +114,22 @@ func TestNormalizeTagsSeparators(t *testing.T) {
 		t.Fatalf("NormalizeTags = %q, %v", got, ok)
 	}
 }
+
+// Zustand STALE zaehlt als "veraltet": IPAM nimmt solche Eintraege nicht als Beweis der Anwesenheit.
+func TestParseNeighEntriesStale(t *testing.T) {
+	mac := []byte{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}
+	var b []byte
+	b = append(b, neighMsg(afInet, 0x02, netip.MustParseAddr("192.168.1.20"), mac)...) // reachable
+	b = append(b, neighMsg(afInet, 0x04, netip.MustParseAddr("192.168.1.21"), mac)...) // stale
+	b = append(b, neighMsg(afInet, 0x80, netip.MustParseAddr("192.168.1.22"), mac)...) // permanent
+	got := parseNeighEntries(b)
+	if len(got) != 3 {
+		t.Fatalf("entries: %v", got)
+	}
+	if got[netip.MustParseAddr("192.168.1.20")].Stale || !got[netip.MustParseAddr("192.168.1.21")].Stale || got[netip.MustParseAddr("192.168.1.22")].Stale {
+		t.Fatalf("stale flags: %v", got)
+	}
+	if got[netip.MustParseAddr("192.168.1.20")].MAC != "02:11:22:33:44:55" {
+		t.Fatalf("mac: %v", got)
+	}
+}

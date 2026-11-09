@@ -1,6 +1,6 @@
 # Node64 – Modul Exposure-Check (Planung)
 
-Stand 2026-11-09, überarbeitet (zwei Spuren). Phase E1 (Spur 1) ist umgesetzt (Modul `exposure` 0.1.0, Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e1.md`); E2 bis E6 stehen noch aus.
+Stand 2026-11-09, überarbeitet (zwei Spuren). Phase E1 (Spur 1) ist umgesetzt (Modul `exposure` 0.1.0, Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e1.md`); E2 (UPnP-Indiz, Zusammenführung, Einordnung; Umsetzungsplan `docs/superpowers/plans/2026-11-09-exposure-e2.md`) ist umgesetzt (0.2.0); E3 bis E6 stehen noch aus.
 Issue: Scharxi/node64 #23.
 
 Was als **Annahme** markiert ist, hat der Verfasser entschieden, nicht Lucas; es ist leicht änderbar.

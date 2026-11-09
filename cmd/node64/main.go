@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -46,6 +47,7 @@ import (
 	"github.com/ipv64net/node64/internal/healthchecks/hccluster"
 	"github.com/ipv64net/node64/internal/honeypot"
 	"github.com/ipv64net/node64/internal/i18n"
+	"github.com/ipv64net/node64/internal/ipam"
 	"github.com/ipv64net/node64/internal/ipv64api"
 	"github.com/ipv64net/node64/internal/logging"
 	"github.com/ipv64net/node64/internal/module"
@@ -223,6 +225,23 @@ func run() error {
 	}
 	dnsModule.SetNotifier(dispatcher.Dispatch) // Upstream gestoert, Blockliste nicht ladbar
 	modules.Register(dnsModule)
+	ipamModule := ipam.New(st, logger.Slog(), Version) // IPAM: Adressverzeichnis, fuellt sich aus Nachbartabelle und DNS64
+	ipamModule.AddSource(ipam.NeighborSource())
+	ipamModule.AddSource(ipam.FuncSource{N: ipam.SourceDNS64, Fn: func(ctx context.Context) ([]ipam.Observation, error) {
+		if !modules.IsRunning(dns64.Name) { // DNS64 aus: keine Geraete, kein Fehler
+			return nil, nil
+		}
+		var out []ipam.Observation
+		for _, d := range dnsModule.NetDevices(ctx) {
+			ip, err := netip.ParseAddr(d.IP)
+			if err != nil {
+				continue
+			}
+			out = append(out, ipam.Observation{IP: ip, MAC: d.MAC, Name: d.Name, Source: ipam.SourceDNS64, Seen: d.LastSeen})
+		}
+		return out, nil
+	}})
+	modules.Register(ipamModule)
 	// Reverse-Proxy ueber den gemeinsamen Eingang
 	cdnModule := cdn64.New(st, logger.Slog(), edgeSrv, certMgr, Version)
 	cdnModule.SetSecrets(box)   // Tunnel-Token (CDN64 online)

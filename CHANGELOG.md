@@ -4,6 +4,8 @@ Kurz, was sich je Version ändert. Einzelheiten je Modul stehen in der Node unte
 
 ## Unveröffentlicht
 
+- IPAM: Neues Modul – Subnetze und ein Adressverzeichnis, das sich selbst aus DNS64 und der Nachbartabelle füllt; unbekannte Geräte erscheinen als „neu“, Namen, Notizen und Reservierungen trägt man von Hand ein.
+
 ## 1.4.0 – 2026-11-09
 
 - DNS64: Mehrere Blocklisten auf einmal und die eigene Sperrliste als Textfeld (#19); Freigabe-Listen aus dem Netz, die jede Blockliste schlagen.

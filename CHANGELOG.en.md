@@ -4,6 +4,8 @@ Short summary of what changes per version. Details per module are in the node un
 
 ## Unreleased
 
+- IPAM: New module – subnets and an address directory that fills itself from DNS64 and the neighbour table; unknown devices show up as "new", names, notes and reservations are added by hand.
+
 ## 1.4.0 – 2026-11-09
 
 - DNS64: add several blocklists at once and edit your own blocklist as a text field (#19); allow lists from the web that win over every blocklist.

@@ -177,6 +177,16 @@ Das Modul *DynDNS* (in den Einstellungen einschalten) hält ausgewählte Domains
 - **Verlauf und Limit:** Jede Prüfung und jeder Aufruf steht im Verlauf (Aufbewahrung einstellbar). Mit API-Key zeigt die Seite das Update-Limit des Accounts. Benachrichtigungen (Adresswechsel, Fehler, Limit) gehen an die Standardkanäle, auch bei verknüpfter Node, nicht in der Ruhezeit. ipv64-Mail und -SMS laufen für Modul-Meldungen mit dem API-Key direkt über die ipv64-API (`POST /hc2/channels/{id}/send`), nicht über die hubs; ohne Verknüpfung liest die Node die Kanäle des Accounts über die API.
 - **API und Export:** `GET /api/dyndns/status`, `GET|POST /api/dyndns/targets`, `GET|PUT|DELETE /api/dyndns/targets/{id}`, `POST /api/dyndns/targets/{id}/update`, `POST /api/dyndns/check`, `GET /api/dyndns/history`. Der Export enthält Ziele und Einstellungen ohne Tokens; der Import holt sie mit dem API-Key neu.
 
+## IPAM (Adressverzeichnis)
+
+Das Modul *IPAM* (in den Einstellungen einschalten) ist ein Adressverzeichnis, das sich selbst füllt. Ausgeschaltet läuft nichts.
+
+- **Subnetze:** Einmal anlegen (IPv4 von /8 bis /32, IPv6 von /48 bis /128, ohne Überschneidung). Jedes Subnetz zeigt eine Karte mit Belegung.
+- **Adressen:** Die Liste füllt sich jede Minute aus DNS64 (Name, wenn das Modul läuft und die Anonymisierung aus ist) und der Nachbartabelle des Hosts (MAC, nur im selben Netzsegment, also mit `network_mode: host`). Name, Notiz und Reservierung trägst du von Hand ein; ein Name von Hand schlägt immer den aus einer Quelle.
+- **Status:** *belegt* (in den letzten 24 Stunden gesehen), *offline*, *reserviert* und *neu* (gesehen, aber weder benannt noch bestätigt oder ignoriert). Beim ersten Durchlauf eines Subnetzes gelten alle gefundenen Geräte als *neu*; *Alle bestätigen* räumt das auf. Hat eine Reservierung eine MAC und unter der Adresse erscheint eine andere, zeigt die Seite einen Konflikt.
+- **Aufräumen:** Nur gesehene, nie bearbeitete Adressen verschwinden nach 90 Tagen (IPv6: 7 Tage) ohne Sichtung.
+- **API:** `GET /api/ipam/status`, `GET|POST /api/ipam/subnets`, `DELETE /api/ipam/subnets/{id}`, `GET|POST /api/ipam/subnets/{id}/addresses`, `POST /api/ipam/subnets/{id}/ack-all`, `PUT|DELETE /api/ipam/addresses/{id}`, `POST /api/ipam/addresses/{id}/ack`.
+
 ## DNS64 (lokaler DNS-Resolver)
 
 Das Modul *DNS64* (in den Einstellungen einschalten) ist ein cachender DNS-Server fürs Heimnetz, der Werbung, Tracker und Malware über Blocklisten filtert. Ausgeschaltet läuft nichts und kein Port ist offen.

@@ -51,6 +51,10 @@
     {
       "name": "Sonar64",
       "description": "Community-Messnetz (Modul Sonar64, standardmäßig aus): Teilnahme per Opt-in mit dem zentralen ipv64-API-Key, Rolle, Budget, Ruhezeit, Profil bei ipv64, eigene Messungen und Pings gegen die Node. Ist das Modul aus: 404."
+    },
+    {
+      "name": "IPAM",
+      "description": "Adressverzeichnis (Modul IPAM, standardmäßig aus): Subnetze, Adressen aus DNS64 und Nachbartabelle, Name, Notiz und Reservierung von Hand. Ist das Modul aus: 404."
     }
   ],
   "security": [
@@ -6307,7 +6311,194 @@
             ]
           }
         }
-      }
+      },
+        "IPAMSubnet": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "cidr": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "size": {
+              "type": "integer",
+              "description": "nutzbare IPv4-Adressen (IPv6: 0)"
+            },
+            "used": {
+              "type": "integer",
+              "description": "in den letzten 24 Stunden gesehen"
+            },
+            "reserved": {
+              "type": "integer"
+            },
+            "new": {
+              "type": "integer",
+              "description": "unbekannte Geräte"
+            },
+            "conflicts": {
+              "type": "integer"
+            }
+          }
+        },
+        "IPAMSubnetInput": {
+          "type": "object",
+          "required": [
+            "name",
+            "cidr"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "cidr": {
+              "type": "string",
+              "example": "192.168.1.0/24"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "IPAMAddress": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "ip": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string",
+              "description": "von Hand"
+            },
+            "source_name": {
+              "type": "string",
+              "description": "aus einer Quelle (DNS64)"
+            },
+            "mac": {
+              "type": "string",
+              "description": "zuletzt gesehen"
+            },
+            "reserved_mac": {
+              "type": "string",
+              "description": "von Hand gesetzt"
+            },
+            "note": {
+              "type": "string"
+            },
+            "reserved": {
+              "type": "boolean"
+            },
+            "acknowledged": {
+              "type": "boolean"
+            },
+            "ignored": {
+              "type": "boolean"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "new",
+                "used",
+                "offline",
+                "reserved"
+              ]
+            },
+            "conflict": {
+              "type": "boolean"
+            },
+            "first_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_source": {
+              "type": "string",
+              "description": "dns64, neighbor oder manual"
+            }
+          }
+        },
+        "IPAMAddressInput": {
+          "type": "object",
+          "properties": {
+            "ip": {
+              "type": "string",
+              "description": "nur beim Anlegen"
+            },
+            "name": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "reserved": {
+              "type": "boolean"
+            },
+            "reserved_mac": {
+              "type": "string"
+            }
+          }
+        },
+        "IPAMStatus": {
+          "type": "object",
+          "properties": {
+            "subnets": {
+              "type": "integer"
+            },
+            "used": {
+              "type": "integer"
+            },
+            "new": {
+              "type": "integer"
+            },
+            "conflicts": {
+              "type": "integer"
+            },
+            "outside": {
+              "type": "integer",
+              "description": "Adressen außerhalb aller Subnetze beim letzten Durchlauf"
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "last_ok": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
     }
   },
   "paths": {
@@ -24883,6 +25074,466 @@
           }
         }
       }
-    }
+    },
+      "/ipam/status": {
+        "get": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Zustand: Zahl der Subnetze, belegte und neue Adressen, Konflikte, Quellen",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IPAMStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/subnets": {
+        "get": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Alle Subnetze mit Belegung",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/IPAMSubnet"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Subnetz anlegen (IPv4 /8 bis /32, IPv6 /48 bis /128; das Netz wird maskiert)",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAMSubnetInput"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "angelegt",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IPAMSubnet"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "ungültiges JSON",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "überschneidet sich mit einem Subnetz",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "ungültiges Netz oder ungültiger Name",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/subnets/{id}": {
+        "delete": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Subnetz samt Adressen löschen",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "gelöscht"
+            },
+            "404": {
+              "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/subnets/{id}/addresses": {
+        "get": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Adressen eines Subnetzes (nach Adresse sortiert)",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "used",
+                  "offline",
+                  "reserved"
+                ]
+              },
+              "description": "nur Adressen mit diesem Status"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/IPAMAddress"
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Subnetz nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "ungültiger Filter",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Adresse von Hand eintragen (gilt als bestätigt)",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAMAddressInput"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "angelegt",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IPAMAddress"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "ungültiges JSON",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Subnetz nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Adresse gibt es schon",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Adresse außerhalb des Subnetzes oder ungültiges Feld",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/subnets/{id}/ack-all": {
+        "post": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Alle neuen Geräte des Subnetzes bestätigen",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "acknowledged": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Subnetz nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/addresses/{id}": {
+        "put": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Name, Notiz und Reservierung ersetzen",
+          "description": "Fehlende Felder löschen Name, Notiz und Reservierung. `ip` wird ignoriert. Die Adresse gilt danach als bestätigt.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAMAddressInput"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/IPAMAddress"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "ungültiges JSON",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "ungültiges Feld",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Adresse aus der Liste löschen (wird sie wieder gesehen, taucht sie neu auf)",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "gelöscht"
+            },
+            "404": {
+              "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/ipam/addresses/{id}/ack": {
+        "post": {
+          "tags": [
+            "IPAM"
+          ],
+          "summary": "Adresse bestätigen (nicht mehr „neu“)",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "bestätigt"
+            },
+            "404": {
+              "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
   }
 }

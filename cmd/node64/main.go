@@ -43,6 +43,7 @@ import (
 	"github.com/ipv64net/node64/internal/dyndns"
 	"github.com/ipv64net/node64/internal/dyndns/ddcluster"
 	"github.com/ipv64net/node64/internal/edge"
+	"github.com/ipv64net/node64/internal/exposure"
 	"github.com/ipv64net/node64/internal/healthchecks"
 	"github.com/ipv64net/node64/internal/healthchecks/hccluster"
 	"github.com/ipv64net/node64/internal/honeypot"
@@ -242,6 +243,40 @@ func run() error {
 		return out, nil
 	}})
 	modules.Register(ipamModule)
+	exposureModule := exposure.New(st, logger.Slog(), Version) // Exposure-Check (Innen-Sicht): lauschende Ports der Node, bekannte Geraete aus IPAM
+	exposureModule.SetClaims(portReg.All)
+	exposureModule.SetSubnets(func(ctx context.Context) ([]exposure.SubnetRef, error) {
+		if !modules.IsRunning(ipam.Name) {
+			return nil, errors.New("ipam is switched off")
+		}
+		subs, err := ipamModule.Subnets(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]exposure.SubnetRef, 0, len(subs))
+		for _, s := range subs {
+			out = append(out, exposure.SubnetRef{ID: s.ID, Name: s.Name, CIDR: s.CIDR})
+		}
+		return out, nil
+	})
+	exposureModule.SetHosts(func(ctx context.Context, subnetID int64) ([]exposure.HostRef, error) { // nur Geraete, die in den letzten 24 Stunden gesehen wurden
+		if !modules.IsRunning(ipam.Name) {
+			return nil, errors.New("ipam is switched off")
+		}
+		list, err := ipamModule.Addresses(ctx, subnetID)
+		if err != nil {
+			return nil, err
+		}
+		now := time.Now()
+		var out []exposure.HostRef
+		for _, a := range list {
+			if a.Seen(now) {
+				out = append(out, exposure.HostRef{IP: a.IP, Name: a.DisplayName()})
+			}
+		}
+		return out, nil
+	})
+	modules.Register(exposureModule)
 	// Reverse-Proxy ueber den gemeinsamen Eingang
 	cdnModule := cdn64.New(st, logger.Slog(), edgeSrv, certMgr, Version)
 	cdnModule.SetSecrets(box)   // Tunnel-Token (CDN64 online)

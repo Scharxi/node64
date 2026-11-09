@@ -187,6 +187,14 @@ Das Modul *IPAM* (in den Einstellungen einschalten) ist ein Adressverzeichnis, d
 - **Aufräumen:** Nur gesehene, nie bearbeitete Adressen verschwinden nach 90 Tagen (IPv6: 7 Tage) ohne Sichtung.
 - **API:** `GET /api/ipam/status`, `GET|POST /api/ipam/subnets`, `DELETE /api/ipam/subnets/{id}`, `GET|POST /api/ipam/subnets/{id}/addresses`, `POST /api/ipam/subnets/{id}/ack-all`, `PUT|DELETE /api/ipam/addresses/{id}`, `POST /api/ipam/addresses/{id}/ack`.
 
+## Exposure-Check (Innen-Sicht)
+
+Das Modul *Exposure-Check* (in den Einstellungen einschalten) zeigt, **auf welcher Adresse welche Ports lauschen**. Ausgeschaltet läuft nichts. Ob ein Port aus dem Internet erreichbar ist, zeigt erst die Außen-Sicht (folgt); „lauscht“ heißt nicht „erreichbar“.
+
+- **Diese Node:** Die lauschenden Sockets werden aus `/proc` gelesen (nur Linux, kein Netzverkehr, alle 5 Minuten). Zu jedem Port steht das besitzende Modul; ein Port ohne Besitzer erscheint als *fremdes Programm*. Im Container gilt der Netz-Namensraum des Containers, mit `network_mode: host` der des Hosts.
+- **Geräte im LAN (optional):** Je IPAM-Subnetz einschaltbar. Geprüft werden nur **bekannte** Geräte (in den letzten 24 Stunden gesehen) per TCP-Connect auf rund 90 häufige Ports plus eigene (höchstens 100), nur in privaten Netzen. Abstand 1, 6, 24 oder 168 Stunden. Ein Gerät, das gerade nicht antwortet, behält seine bekannten Ports.
+- **API:** `GET /api/exposure/status`, `GET /api/exposure/listen?address=self|<ip>`, `GET|PUT /api/exposure/settings`, `POST /api/exposure/scan`.
+
 ## DNS64 (lokaler DNS-Resolver)
 
 Das Modul *DNS64* (in den Einstellungen einschalten) ist ein cachender DNS-Server fürs Heimnetz, der Werbung, Tracker und Malware über Blocklisten filtert. Ausgeschaltet läuft nichts und kein Port ist offen.

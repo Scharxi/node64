@@ -10,6 +10,7 @@ von Node64 selbst (Kern, z. B. `0.11.66-dev`). So ist sichtbar, welches Modul si
 | DNS64 | `internal/dns64` | 1.0.0 |
 | PROXY64 (ID `cdn64`) | `internal/cdn64` | 1.0.0 |
 | IPAM | `internal/ipam` | 0.1.0 |
+| Exposure-Check | `internal/exposure` | 0.1.0 |
 
 ## Wo die Version steht
 

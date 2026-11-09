@@ -5,6 +5,7 @@ Short summary of what changes per version. Details per module are in the node un
 ## Unreleased
 
 - IPAM: New module – subnets and an address directory that fills itself from DNS64 and the neighbour table; unknown devices show up as "new", names, notes and reservations are added by hand.
+- Exposure check: New module (inside view) – shows which ports the node listens on and which module owns the port; optionally checks known devices of the IPAM subnets for open ports (private networks only, switchable per subnet).
 
 ## 1.4.0 – 2026-11-09
 

@@ -55,6 +55,10 @@
     {
       "name": "IPAM",
       "description": "Adressverzeichnis (Modul IPAM, standardmäßig aus): Subnetze, Adressen aus DNS64 und Nachbartabelle, Name, Notiz und Reservierung von Hand. Ist das Modul aus: 404."
+    },
+    {
+      "name": "Exposure",
+      "description": "Exposure-Check, Innen-Sicht (Modul Exposure-Check, standardmäßig aus): auf welcher Adresse welche Ports lauschen. Die Node selbst aus /proc, bekannte Geräte der IPAM-Subnetze per TCP-Connect (nur private Netze, je Subnetz einschaltbar). Ist das Modul aus: 404."
     }
   ],
   "security": [
@@ -6495,6 +6499,115 @@
                     "type": "integer"
                   }
                 }
+              }
+            }
+          }
+        },
+        "ExposureStatus": {
+          "type": "object",
+          "properties": {
+            "self_known": {
+              "type": "boolean",
+              "description": "/proc war lesbar"
+            },
+            "last_self_at": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_scan_at": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "running": {
+              "type": "boolean"
+            },
+            "hosts": {
+              "type": "integer",
+              "description": "Geräte des letzten Scans"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        },
+        "ExposureListen": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string",
+              "description": "`self` oder die IP eines Geräts"
+            },
+            "proto": {
+              "type": "string",
+              "enum": [
+                "tcp",
+                "udp"
+              ]
+            },
+            "port": {
+              "type": "integer"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "gone"
+              ]
+            },
+            "service": {
+              "type": "string"
+            },
+            "bind": {
+              "type": "string",
+              "description": "nur Node: all, local oder eine Adresse"
+            },
+            "owner": {
+              "type": "string",
+              "description": "nur Node: besitzendes Modul, leer = fremdes Programm"
+            },
+            "first_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "last_seen": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "self",
+                "scan"
+              ]
+            }
+          }
+        },
+        "ExposureSettings": {
+          "type": "object",
+          "properties": {
+            "interval_hours": {
+              "type": "integer",
+              "enum": [
+                1,
+                6,
+                24,
+                168
+              ]
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "subnets": {
+              "type": "array",
+              "items": {
+                "type": "integer"
               }
             }
           }
@@ -25524,6 +25637,175 @@
             },
             "404": {
               "description": "nicht gefunden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/status": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Zustand der Läufe (Node gelesen, letzter Scan, läuft gerade, Fehler)",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ExposureStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/listen": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Gesehene offene Ports",
+          "description": "Innen-Sicht: auf welcher Adresse welche Ports offen sind bzw. gehört wird. `state` ist `open` oder `gone` (war offen, jetzt nicht mehr).",
+          "parameters": [
+            {
+              "name": "address",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string"
+              },
+              "description": "`self` für die Node selbst oder die IP eines Geräts; ohne Angabe alle Adressen"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ExposureListen"
+                    }
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "ungültige Adresse",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/settings": {
+        "get": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Einstellungen",
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ExposureSettings"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Einstellungen ersetzen (fehlende Felder gelten als leer)",
+          "description": "`interval_hours`: 1, 6, 24 oder 168. `ports`: eigene Ports zusätzlich zur Standardliste, insgesamt höchstens 100. `subnets`: IPAM-Subnetze, deren bekannte Geräte gescannt werden.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExposureSettings"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "OK",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ExposureSettings"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "ungültiges JSON",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "ungültiger Abstand, ungültige oder zu viele Ports, unbekanntes Subnetz",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/exposure/scan": {
+        "post": {
+          "tags": [
+            "Exposure"
+          ],
+          "summary": "Jetzt prüfen: Node lesen und eingeschaltete Subnetze scannen (läuft im Hintergrund)",
+          "responses": {
+            "202": {
+              "description": "gestartet",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "started": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "es läuft schon ein Lauf",
               "content": {
                 "application/json": {
                   "schema": {
